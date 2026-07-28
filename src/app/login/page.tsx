@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -14,7 +13,8 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const registered = searchParams.get('registered')
-  const accountInactive = searchParams.get('error') === 'account_inactive'
+  const authError = searchParams.get('error')
+  const accountInactive = authError === 'account_inactive'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -35,19 +35,33 @@ function LoginForm() {
     const destination = callbackUrl ? decodeURIComponent(callbackUrl) : '/dashboard'
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      const csrfRes = await fetch('/api/auth/csrf')
+      const { csrfToken } = await csrfRes.json()
+
+      const callbackRes = await fetch('/api/auth/callback/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          email,
+          password,
+          csrfToken,
+          redirect: 'false',
+          json: 'true',
+        }),
       })
 
-      if (result?.error) {
+      const data = await callbackRes.json().catch(() => null)
+
+      if (data?.url) {
+        window.location.href = destination
+      } else if (callbackRes.ok) {
+        window.location.href = destination
+      } else {
         setError('Invalid email or password')
         setLoading(false)
-      } else {
-        router.push(destination)
       }
-    } catch {
+    } catch (err) {
+      console.error('Login error:', err)
       setError('An error occurred. Please try again.')
       setLoading(false)
     }

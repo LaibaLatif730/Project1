@@ -5,7 +5,7 @@ import { sendWhatsAppMessage } from '@/lib/whatsapp'
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 async function generateAftercareResponse(question: string, patientContext: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY
+  const apiKey = process.env.GROK_API_KEY || process.env.GROQ_API_KEY
   if (!apiKey) {
     return 'Thank you for your question. Our team will review it and get back to you shortly. If this is urgent, please contact the clinic directly.'
   }
@@ -18,7 +18,7 @@ async function generateAftercareResponse(question: string, patientContext: strin
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',

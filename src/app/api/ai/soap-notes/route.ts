@@ -6,7 +6,7 @@ import { auditLog } from '@/lib/audit-log'
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 async function generateSOAPNotes(consultationNotes: string, patientHistory: string, treatmentType: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY
+  const apiKey = process.env.GROK_API_KEY || process.env.GROQ_API_KEY
   if (!apiKey) {
     return generateFallbackSOAP(consultationNotes, treatmentType)
   }
@@ -19,7 +19,7 @@ async function generateSOAPNotes(consultationNotes: string, patientHistory: stri
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',

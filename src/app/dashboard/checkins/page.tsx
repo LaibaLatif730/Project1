@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +31,7 @@ interface SilenceRiskStats {
 }
 
 export default function CheckInsPage() {
+  const router = useRouter()
   const [checkIns, setCheckIns] = useState<CheckIn[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -405,7 +407,9 @@ export default function CheckInsPage() {
                         {expandedId === checkIn.id ? 'Hide Details' : 'View Details'}
                       </Button>
                       {checkIn.status === 'ESCALATED' && (
-                        <Button size="sm">Take Action</Button>
+                        <Button size="sm" onClick={() => router.push(`/dashboard/patients/${checkIn.patient.id}`)}>
+                          Take Action
+                        </Button>
                       )}
                     </div>
                   </div>

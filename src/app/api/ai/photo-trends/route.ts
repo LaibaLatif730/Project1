@@ -6,7 +6,7 @@ import { auditLog } from '@/lib/audit-log'
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 async function generateTrendAnalysis(analyses: any[], treatmentType: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY
+  const apiKey = process.env.GROK_API_KEY || process.env.GROQ_API_KEY
   if (!apiKey) {
     return generateFallbackTrend(analyses, treatmentType)
   }
@@ -24,7 +24,7 @@ async function generateTrendAnalysis(analyses: any[], treatmentType: string): Pr
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',

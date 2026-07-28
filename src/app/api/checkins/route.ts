@@ -103,10 +103,26 @@ export async function POST(req: Request) {
     if (treatmentId) {
       const existingCheckIns = await prisma.recoveryCheckIn.findMany({
         where: { treatmentId },
-        select: { id: true },
+        select: { dayNumber: true },
       })
-      if (existingCheckIns.length > 0) {
-        return NextResponse.json({ error: 'Check-ins already exist for this treatment' }, { status: 400 })
+      const existingDays = new Set(existingCheckIns.map(c => c.dayNumber))
+      if (existingDays.size > 0) {
+        const count = Math.min(Math.max(parseInt(numberOfCheckIns) || 5, 1), 30)
+        const hasOverlap = Array.from({ length: count }, (_, i) => i + 1).some(d => existingDays.has(d))
+        if (hasOverlap) {
+          return NextResponse.json({ error: 'Check-ins already exist for some of these days. Increase the start day or use different interval.' }, { status: 400 })
+        }
+      }
+    } else {
+      const existingStandalone = await prisma.recoveryCheckIn.findMany({
+        where: { patientId, treatmentId: null },
+        select: { dayNumber: true },
+      })
+      const existingDays = new Set(existingStandalone.map(c => c.dayNumber))
+      const count = Math.min(Math.max(parseInt(numberOfCheckIns) || 5, 1), 30)
+      const hasOverlap = Array.from({ length: count }, (_, i) => i + 1).some(d => existingDays.has(d))
+      if (hasOverlap) {
+        return NextResponse.json({ error: 'Standalone check-ins already exist for some of these days.' }, { status: 400 })
       }
     }
 

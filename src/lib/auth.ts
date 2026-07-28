@@ -55,6 +55,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role
         token.id = user.id
         token.roleCheckedAt = Date.now()
+        return token
       }
       // Re-verify role from DB every 1 minute to catch deactivation quickly
       const lastChecked = (token.roleCheckedAt as number) || 0
@@ -80,6 +81,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/login',
+    error: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
 }

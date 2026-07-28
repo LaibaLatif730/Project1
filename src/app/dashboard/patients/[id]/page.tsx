@@ -352,15 +352,15 @@ export default function PatientDetailPage() {
                 <>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Total Treatments</span>
-                    <span className="font-medium">{patient.treatments.length}</span>
+                    <span className="font-medium">{patient.treatments?.length ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Check-ins</span>
-                    <span className="font-medium">{patient.checkIns.length}</span>
+                    <span className="font-medium">{patient.checkIns?.length ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Appointments</span>
-                    <span className="font-medium">{patient.appointments.length}</span>
+                    <span className="font-medium">{patient.appointments?.length ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Photos Uploaded</span>
@@ -382,7 +382,7 @@ export default function PatientDetailPage() {
             <CardDescription>Chronological treatment history</CardDescription>
           </CardHeader>
           <CardContent>
-            {patient.treatments.length === 0 ? (
+            {(patient.treatments?.length ?? 0) === 0 ? (
               <p className="text-center py-4 text-muted-foreground">No treatments recorded</p>
             ) : (
               <div className="space-y-4">
@@ -404,7 +404,7 @@ export default function PatientDetailPage() {
                     {treatment.notes && (
                       <p className="text-sm text-muted-foreground mb-2">{treatment.notes}</p>
                     )}
-                    {treatment.checkIns.length > 0 && (
+                    {treatment.checkIns?.length > 0 && (
                       <div className="flex gap-2 mt-2">
                         {treatment.checkIns.map((ci) => (
                           <Badge key={ci.id} variant={getRiskBadge(ci.riskLevel)} className="text-xs">
@@ -421,7 +421,7 @@ export default function PatientDetailPage() {
                         const params = new URLSearchParams({
                           patientId: patient!.id,
                           treatmentType: treatment.type,
-                          dayNumber: treatment.checkIns.length > 0
+                              dayNumber: (treatment.checkIns?.length ?? 0) > 0
                             ? Math.max(...treatment.checkIns.map(c => c.dayNumber)).toString()
                             : '1',
                         })
@@ -446,7 +446,7 @@ export default function PatientDetailPage() {
             <CardDescription>Detailed injection site documentation</CardDescription>
           </CardHeader>
           <CardContent>
-            {patient.treatments.length === 0 ? (
+            {(patient.treatments?.length ?? 0) === 0 ? (
               <p className="text-center py-4 text-muted-foreground">No treatments recorded</p>
             ) : (
               <div className="space-y-6">
@@ -455,7 +455,7 @@ export default function PatientDetailPage() {
                     <h3 className="font-semibold mb-3">
                       {treatment.type.replace(/_/g, ' ')} — {formatDate(treatment.treatmentDate)}
                     </h3>
-                    {treatment.injectionMappings.length === 0 ? (
+                    {(treatment.injectionMappings?.length ?? 0) === 0 ? (
                       <p className="text-sm text-muted-foreground">No injection mappings recorded</p>
                     ) : (
                       <div className="space-y-2">
@@ -564,7 +564,7 @@ export default function PatientDetailPage() {
               </form>
             )}
 
-            {patient.checkIns.length === 0 ? (
+            {(patient.checkIns?.length ?? 0) === 0 ? (
               <p className="text-center py-4 text-muted-foreground">No check-ins scheduled</p>
             ) : (
               <div className="space-y-3">

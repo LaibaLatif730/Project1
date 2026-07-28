@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/api-auth'
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 async function generateActivityDigest(metrics: any): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY
+  const apiKey = process.env.GROK_API_KEY || process.env.GROQ_API_KEY
   if (!apiKey) {
     return generateFallbackDigest(metrics)
   }
@@ -18,7 +18,7 @@ async function generateActivityDigest(metrics: any): Promise<string> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-70b-8192',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',

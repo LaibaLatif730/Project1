@@ -304,7 +304,7 @@ export async function POST(req: Request) {
               asymmetryScore: features.asymmetry,
               noduleScore: features.nodules,
               vascularityScore: features.vascularity,
-              overallScore: (features.edema + features.ecchymosis + features.erythema + features.asymmetry) / 4,
+              overallScore: (features.edema + features.ecchymosis + features.erythema + features.asymmetry) / 40,
               confidenceScore: grokResult.confidenceScore,
               riskLevel: grokResult.riskLevel,
               status: grokResult.riskLevel === 'RED' || grokResult.riskLevel === 'ORANGE' ? 'UNDER_REVIEW' : 'COMPLETED',
