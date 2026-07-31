@@ -75,31 +75,30 @@ export async function POST(req: Request) {
 
     const appointmentDate = new Date(validatedData.appointmentDate)
     const duration = validatedData.duration || 30
+    const startWindow = new Date(appointmentDate.getTime() - duration * 60 * 1000)
     const endWindow = new Date(appointmentDate.getTime() + duration * 60 * 1000)
 
-    const conflict = await prisma.appointment.findFirst({
+    const patientConflict = await prisma.appointment.findFirst({
       where: {
-        doctorId: validatedData.doctorId || undefined,
+        patientId: patient.id,
         status: { notIn: ['CANCELLED', 'NO_SHOW'] },
-        appointmentDate: { lt: endWindow },
-        patient: {
-          treatments: { some: { id: undefined } },
-        },
-      },
-      include: {
-        patient: { select: { firstName: true, lastName: true } },
+        appointmentDate: { gte: startWindow, lt: endWindow },
       },
     })
+
+    if (patientConflict) {
+      return NextResponse.json(
+        { error: `${validatedData.patientName} already has an appointment at this time (${new Date(patientConflict.appointmentDate).toLocaleString()})` },
+        { status: 409 }
+      )
+    }
 
     const doctorConflict = validatedData.doctorId
       ? await prisma.appointment.findFirst({
           where: {
             doctorId: validatedData.doctorId,
             status: { notIn: ['CANCELLED', 'NO_SHOW'] },
-            appointmentDate: {
-              lt: endWindow,
-              gte: new Date(appointmentDate.getTime() - duration * 60 * 1000),
-            },
+            appointmentDate: { gte: startWindow, lt: endWindow },
           },
           include: {
             patient: { select: { firstName: true, lastName: true } },

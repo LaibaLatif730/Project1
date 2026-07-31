@@ -46,6 +46,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Appointment date must be in the future' }, { status: 400 })
     }
 
+    const durationMs = (duration || 30) * 60 * 1000
+    const existing = await prisma.appointment.findFirst({
+      where: {
+        patientId: auth.patientId,
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+        appointmentDate: {
+          gte: new Date(date.getTime() - durationMs),
+          lt: new Date(date.getTime() + durationMs),
+        },
+      },
+    })
+
+    if (existing) {
+      return NextResponse.json({ error: 'You already have an appointment at this time' }, { status: 409 })
+    }
+
     const appointment = await prisma.appointment.create({
       data: {
         patientId: auth.patientId,
