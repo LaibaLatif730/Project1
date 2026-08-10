@@ -45,16 +45,24 @@ function LoginForm() {
           email,
           password,
           csrfToken,
-          redirect: 'false',
           json: 'true',
         }),
+        redirect: 'manual',
       })
 
-      const data = await callbackRes.json().catch(() => null)
-
-      if (data?.url) {
+      // Check for session cookie in response
+      const sessionCookie = callbackRes.headers.get('set-cookie')
+      
+      if (callbackRes.ok || callbackRes.status === 302 || sessionCookie) {
         window.location.href = destination
-      } else if (callbackRes.ok) {
+        return
+      }
+
+      // Try fetching the session to verify login worked
+      const sessionRes = await fetch('/api/auth/session')
+      const session = await sessionRes.json()
+      
+      if (session?.user?.id) {
         window.location.href = destination
       } else {
         setError('Invalid email or password')
