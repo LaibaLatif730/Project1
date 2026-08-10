@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET(req: Request) {
   try {
@@ -9,14 +9,19 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic associated with session' }, { status: 400 })
+    }
+
     const role = session.user.role
 
     if (role === 'ADMIN') {
-      return adminAnalytics()
+      return adminAnalytics(clinicId)
     } else if (role === 'DOCTOR') {
-      return doctorAnalytics(session.user.id)
+      return doctorAnalytics(session.user.id, clinicId)
     } else if (role === 'RECEPTIONIST') {
-      return receptionistAnalytics()
+      return receptionistAnalytics(clinicId)
     }
 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -26,7 +31,7 @@ export async function GET(req: Request) {
   }
 }
 
-async function adminAnalytics() {
+async function adminAnalytics(clinicId: string) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -51,15 +56,15 @@ async function adminAnalytics() {
     complicationTypeRows,
     weeklyCheckIns,
   ] = await Promise.all([
-    prisma.user.count({ where: { role: 'DOCTOR' } }),
-    prisma.user.count({ where: { role: 'RECEPTIONIST' } }),
-    prisma.patient.count({ where: { isActive: true } }),
-    prisma.treatment.count(),
-    prisma.appointment.count(),
-    prisma.patient.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.treatment.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.appointment.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
-    prisma.complicationRecord.count({ where: { reportedToRegulatory: false } }),
+    prisma.user.count({ where: { role: 'DOCTOR', clinicId } }),
+    prisma.user.count({ where: { role: 'RECEPTIONIST', clinicId } }),
+    prisma.patient.count({ where: { isActive: true, clinicId } }),
+    prisma.treatment.count({ where: { clinicId } }),
+    prisma.appointment.count({ where: { clinicId } }),
+    prisma.patient.count({ where: { createdAt: { gte: thirtyDaysAgo }, clinicId } }),
+    prisma.treatment.count({ where: { createdAt: { gte: thirtyDaysAgo }, clinicId } }),
+    prisma.appointment.count({ where: { createdAt: { gte: thirtyDaysAgo }, clinicId } }),
+    prisma.complicationRecord.count({ where: { reportedToRegulatory: false, clinicId } }),
     prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -71,24 +76,30 @@ async function adminAnalytics() {
         createdAt: true,
         user: { select: { name: true, role: true } },
       },
+      where: {
+        user: { clinicId },
+      },
     }),
-    prisma.recoveryCheckIn.count({ where: { status: 'COMPLETED' } }),
-    prisma.recoveryCheckIn.count({ where: { status: 'PENDING' } }),
-    prisma.recoveryCheckIn.count({ where: { status: 'ESCALATED' } }),
+    prisma.recoveryCheckIn.count({ where: { status: 'COMPLETED', clinicId } }),
+    prisma.recoveryCheckIn.count({ where: { status: 'PENDING', clinicId } }),
+    prisma.recoveryCheckIn.count({ where: { status: 'ESCALATED', clinicId } }),
     prisma.recoveryCheckIn.groupBy({
       by: ['riskLevel'],
       _count: { id: true },
+      where: { clinicId },
     }),
     prisma.treatment.groupBy({
       by: ['type'],
       _count: { id: true },
+      where: { clinicId },
     }),
     prisma.complicationRecord.groupBy({
       by: ['complicationType'],
       _count: { id: true },
+      where: { clinicId },
     }),
     prisma.recoveryCheckIn.findMany({
-      where: { createdAt: { gte: eightWeeksAgo } },
+      where: { createdAt: { gte: eightWeeksAgo }, clinicId },
       select: { createdAt: true },
       orderBy: { createdAt: 'asc' },
     }),
@@ -135,7 +146,7 @@ async function adminAnalytics() {
   })
 }
 
-async function doctorAnalytics(userId: string) {
+async function doctorAnalytics(userId: string, clinicId: string) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
@@ -159,6 +170,7 @@ async function doctorAnalytics(userId: string) {
     prisma.appointment.findMany({
       where: {
         doctorId: doctor.id,
+        clinicId,
         appointmentDate: { gte: today, lt: tomorrow },
         status: { not: 'CANCELLED' },
       },
@@ -169,6 +181,7 @@ async function doctorAnalytics(userId: string) {
     }),
     prisma.recoveryCheckIn.findMany({
       where: {
+        clinicId,
         riskLevel: { in: ['ORANGE', 'RED'] },
         status: { not: 'COMPLETED' },
       },
@@ -187,10 +200,11 @@ async function doctorAnalytics(userId: string) {
       take: 10,
     }),
     prisma.recoveryCheckIn.count({
-      where: { status: 'PENDING' },
+      where: { status: 'PENDING', clinicId },
     }),
-    prisma.patient.count({ where: { isActive: true } }),
+    prisma.patient.count({ where: { isActive: true, clinicId } }),
     prisma.treatment.findMany({
+      where: { clinicId },
       orderBy: { createdAt: 'desc' },
       take: 5,
       include: {
@@ -208,7 +222,7 @@ async function doctorAnalytics(userId: string) {
   })
 }
 
-async function receptionistAnalytics() {
+async function receptionistAnalytics(clinicId: string) {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
@@ -222,6 +236,7 @@ async function receptionistAnalytics() {
   ] = await Promise.all([
     prisma.appointment.findMany({
       where: {
+        clinicId,
         appointmentDate: { gte: today, lt: tomorrow },
         status: { not: 'CANCELLED' },
       },
@@ -233,6 +248,7 @@ async function receptionistAnalytics() {
     }),
     prisma.appointment.findMany({
       where: {
+        clinicId,
         appointmentDate: { gte: tomorrow },
         status: 'SCHEDULED',
       },
@@ -245,6 +261,7 @@ async function receptionistAnalytics() {
     }),
     prisma.recoveryCheckIn.findMany({
       where: {
+        clinicId,
         status: 'COMPLETED',
         completedDate: { gte: today },
       },
@@ -255,9 +272,9 @@ async function receptionistAnalytics() {
         patient: { select: { firstName: true, lastName: true } },
       },
     }),
-    prisma.patient.count({ where: { isActive: true } }),
+    prisma.patient.count({ where: { isActive: true, clinicId } }),
     prisma.patient.findMany({
-      where: { isActive: true },
+      where: { isActive: true, clinicId },
       select: {
         id: true,
         firstName: true,

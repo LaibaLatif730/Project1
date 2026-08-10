@@ -2,6 +2,7 @@ import prisma from '@/lib/db'
 
 interface AuditLogParams {
   userId?: string
+  clinicId?: string
   action: string
   entity: string
   entityId?: string
@@ -13,6 +14,7 @@ interface AuditLogParams {
 
 export async function auditLog({
   userId,
+  clinicId,
   action,
   entity,
   entityId,
@@ -25,6 +27,7 @@ export async function auditLog({
     await prisma.auditLog.create({
       data: {
         userId,
+        clinicId,
         action,
         entity,
         entityId,

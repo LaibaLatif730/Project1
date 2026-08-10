@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { clinicalNoteSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function GET(req: Request) {
@@ -15,12 +15,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Only doctors can view clinical notes' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get('patientId')
     const treatmentId = searchParams.get('treatmentId')
     const noteType = searchParams.get('noteType')
 
-    const where: any = {}
+    const where: any = { clinicId }
     if (patientId) where.patientId = patientId
     if (treatmentId) where.treatmentId = treatmentId
     if (noteType) where.noteType = noteType
@@ -60,6 +65,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only doctors can create clinical notes' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const body = await req.json()
     const validatedData = clinicalNoteSchema.parse(body)
 
@@ -73,6 +83,7 @@ export async function POST(req: Request) {
         content: validatedData.content,
         isAiGenerated: validatedData.isAiGenerated,
         isPrivate: validatedData.isPrivate,
+        clinicId,
       },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },

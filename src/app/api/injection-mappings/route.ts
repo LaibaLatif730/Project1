@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { injectionMappingSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET(req: Request) {
   try {
@@ -10,17 +10,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const treatmentId = searchParams.get('treatmentId')
     const patientId = searchParams.get('patientId')
     const area = searchParams.get('area')
 
-    const where: any = {}
+    const where: any = { treatment: { patient: { clinicId } } }
     if (treatmentId) where.treatmentId = treatmentId
     if (area) where.area = area
 
     if (patientId) {
-      where.treatment = { patientId }
+      where.treatment = { ...where.treatment, patientId }
     }
 
     const mappings = await prisma.injectionMapping.findMany({
@@ -52,6 +57,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only doctors can create injection mappings' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const body = await req.json()
     const validatedData = injectionMappingSchema.parse(body)
 
@@ -70,6 +80,7 @@ export async function POST(req: Request) {
         depth: validatedData.depth,
         aspiration: validatedData.aspiration,
         notes: validatedData.notes,
+        clinicId,
       },
       include: {
         treatment: { select: { id: true, type: true, treatmentDate: true } },
@@ -103,6 +114,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    const existing = await prisma.injectionMapping.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     await prisma.injectionMapping.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -123,6 +139,11 @@ export async function PATCH(req: Request) {
     const { id, ...updateData } = body
 
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    const existing = await prisma.injectionMapping.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const mapping = await prisma.injectionMapping.update({
       where: { id },

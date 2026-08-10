@@ -55,6 +55,21 @@ model Clinic {
   patients  Patient[]
   treatments Treatment[]
   products  Product[]
+  checkIns  RecoveryCheckIn[]
+  photos    PatientPhoto[]
+  aiAnalyses AIAnalysis[]
+  consentRecords  ConsentRecord[]
+  complications   ComplicationRecord[]
+  clinicalNotes   ClinicalNote[]
+  clinicalDocuments ClinicalDocument[]
+  doctorNotes     DoctorNote[]
+  injectionMappings InjectionMapping[]
+  notifications   Notification[]
+  whatsappIntakes WhatsAppIntake[]
+  surveys         Survey[]
+  reviews         Review[]
+  auditLogs       AuditLog[]
+  silenceRiskLogs SilenceRiskLog[]
 
   @@index([name])
 }
@@ -238,6 +253,8 @@ model InjectionMapping {
   treatment       Treatment @relation(fields: [treatmentId], references: [id])
   doctorId        String?
   doctor          Doctor?  @relation(fields: [doctorId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   area            String
   subArea         String?
   units           Float?
@@ -266,6 +283,8 @@ model RecoveryCheckIn {
   treatment       Treatment? @relation(fields: [treatmentId], references: [id])
   patientId       String
   patient         Patient  @relation(fields: [patientId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   dayNumber       Int
   scheduledDate   DateTime
   completedDate   DateTime?
@@ -285,6 +304,7 @@ model RecoveryCheckIn {
 
   @@index([treatmentId])
   @@index([patientId])
+  @@index([clinicId])
   @@index([scheduledDate])
   @@index([status])
   @@index([riskLevel])
@@ -298,6 +318,8 @@ model PatientPhoto {
   patient         Patient  @relation(fields: [patientId], references: [id])
   checkInId       String?
   checkIn         RecoveryCheckIn? @relation(fields: [checkInId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   imageUrl        String
   thumbnailUrl    String?
   uploadDate      DateTime @default(now())
@@ -312,6 +334,7 @@ model PatientPhoto {
 
   @@index([patientId])
   @@index([checkInId])
+  @@index([clinicId])
   @@index([source])
 }
 
@@ -323,6 +346,8 @@ model AIAnalysis {
   photo           PatientPhoto @relation(fields: [photoId], references: [id])
   checkInId       String?
   checkIn         RecoveryCheckIn? @relation(fields: [checkInId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   analysisDate    DateTime @default(now())
   swellingScore   Float    @default(0)
   bruisingScore   Float    @default(0)
@@ -364,6 +389,8 @@ model ConsentRecord {
   id              String   @id @default(cuid())
   patientId       String
   patient         Patient  @relation(fields: [patientId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   consentType     String
   version         String
   status          String   @default("ACTIVE")
@@ -388,6 +415,8 @@ model ComplicationRecord {
   patient         Patient  @relation(fields: [patientId], references: [id])
   treatmentId     String?
   treatment       Treatment? @relation(fields: [treatmentId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   complicationType String
   description     String?
   severity        String
@@ -417,6 +446,8 @@ model ClinicalNote {
   treatmentId     String?
   treatment       Treatment? @relation(fields: [treatmentId], references: [id])
   checkInId       String?
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   noteType        String
   content         String
   isAiGenerated   Boolean  @default(false)
@@ -435,6 +466,8 @@ model ClinicalDocument {
   id              String   @id @default(cuid())
   treatmentId     String
   treatment       Treatment @relation(fields: [treatmentId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   documentType    String
   content         String
   generatedBy     String   @default("AI")
@@ -457,6 +490,8 @@ model DoctorNote {
   treatment       Treatment? @relation(fields: [treatmentId], references: [id])
   checkInId       String?
   checkIn         RecoveryCheckIn? @relation(fields: [checkInId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   content         String
   isPrivate       Boolean  @default(false)
   createdAt       DateTime @default(now())
@@ -500,6 +535,8 @@ model Notification {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   title           String
   message         String
   type            String
@@ -525,6 +562,8 @@ model WhatsAppIntake {
   reason          String?
   rawMessage      String?
   status          String    @default("PENDING")  // PENDING, APPROVED, REJECTED
+  clinicId        String?
+  clinic          Clinic?   @relation(fields: [clinicId], references: [id])
   patientId       String?   // Set when approved → creates Patient record
   reviewedById    String?
   reviewedBy      User?     @relation(fields: [reviewedById], references: [id])
@@ -544,6 +583,8 @@ model Survey {
   patientId       String
   patient         Patient  @relation(fields: [patientId], references: [id])
   treatmentId     String?
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   type            String
   responses       String   @default("{}")
   completedAt     DateTime?
@@ -559,6 +600,8 @@ model Review {
   id              String   @id @default(cuid())
   patientId       String
   patient         Patient  @relation(fields: [patientId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   rating          Int
   comment         String?
   isPublic        Boolean  @default(false)
@@ -575,6 +618,8 @@ model AuditLog {
   id          String   @id @default(cuid())
   userId      String?
   user        User?    @relation(fields: [userId], references: [id])
+  clinicId    String?
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
   action      String
   entity      String
   entityId    String?
@@ -597,6 +642,8 @@ model SilenceRiskLog {
   checkIn         RecoveryCheckIn @relation(fields: [checkInId], references: [id])
   patientId       String
   patient         Patient  @relation(fields: [patientId], references: [id])
+  clinicId        String?
+  clinic          Clinic?  @relation(fields: [clinicId], references: [id])
   treatmentType   String
   missedDayNumber Int
   scheduledDate   DateTime

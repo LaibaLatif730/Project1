@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET() {
   try {
@@ -10,8 +10,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const receptionists = await prisma.user.findMany({
-      where: { role: { in: ['RECEPTIONIST', 'INACTIVE'] } },
+      where: { role: { in: ['RECEPTIONIST', 'INACTIVE'] }, clinicId },
       select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     })
@@ -34,8 +39,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const body = await req.json()
-    const { name, email, password, phone, clinicId } = body
+    const { name, email, password, phone } = body
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 })
@@ -55,7 +65,7 @@ export async function POST(req: Request) {
         password: hashedPassword,
         phone: phone || undefined,
         role: 'RECEPTIONIST',
-        clinicId: clinicId || undefined,
+        clinicId,
       },
       select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
     })
@@ -85,8 +95,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Receptionist ID is required' }, { status: 400 })
     }
 
-    const existing = await prisma.user.findUnique({ where: { id } })
-    if (!existing || existing.role !== 'RECEPTIONIST' && existing.role !== 'INACTIVE') {
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
+    const existing = await prisma.user.findFirst({ where: { id, clinicId } })
+    if (!existing || (existing.role !== 'RECEPTIONIST' && existing.role !== 'INACTIVE')) {
       return NextResponse.json({ error: 'Receptionist not found' }, { status: 404 })
     }
 
@@ -127,7 +140,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Receptionist ID is required' }, { status: 400 })
     }
 
-    const existing = await prisma.user.findUnique({ where: { id } })
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
+    const existing = await prisma.user.findFirst({ where: { id, clinicId } })
     if (!existing) {
       return NextResponse.json({ error: 'Receptionist not found' }, { status: 404 })
     }

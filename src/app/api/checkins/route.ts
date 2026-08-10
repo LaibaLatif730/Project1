@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function GET(req: Request) {
@@ -10,13 +10,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic associated with session' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get('patientId')
     const treatmentId = searchParams.get('treatmentId')
     const status = searchParams.get('status')
-    const clinicId = searchParams.get('clinicId')
 
-    const where: any = {}
+    const where: any = { clinicId }
     if (patientId) where.patientId = patientId
     if (treatmentId) where.treatmentId = treatmentId
     if (status) {
@@ -25,10 +29,6 @@ export async function GET(req: Request) {
       } else {
         where.status = status
       }
-    }
-
-    if (clinicId) {
-      where.patient = { clinicId }
     }
 
     const checkIns = await prisma.recoveryCheckIn.findMany({
@@ -57,11 +57,23 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic associated with session' }, { status: 400 })
+    }
+
     const body = await req.json()
     const { id, ...updateData } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Check-in ID is required' }, { status: 400 })
+    }
+
+    const existing = await prisma.recoveryCheckIn.findFirst({
+      where: { id, clinicId },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Check-in not found' }, { status: 404 })
     }
 
     const checkIn = await prisma.recoveryCheckIn.update({
@@ -91,6 +103,11 @@ export async function POST(req: Request) {
     }
     if (session.user.role !== 'DOCTOR') {
       return NextResponse.json({ error: 'Only doctors can create check-ins' }, { status: 403 })
+    }
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic associated with session' }, { status: 400 })
     }
 
     const body = await req.json()
@@ -139,6 +156,7 @@ export async function POST(req: Request) {
           data: {
             patientId,
             treatmentId: treatmentId || undefined,
+            clinicId,
             dayNumber,
             scheduledDate,
             notes: notes || undefined,

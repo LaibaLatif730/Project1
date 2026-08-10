@@ -42,6 +42,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          clinicId: user.clinicId,
         }
       },
     }),
@@ -54,6 +55,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = (user as any).role
         token.id = user.id
+        token.clinicId = (user as any).clinicId
         token.roleCheckedAt = Date.now()
         return token
       }
@@ -62,10 +64,11 @@ export const authOptions: NextAuthOptions = {
       if (token.email && Date.now() - lastChecked > 60 * 1000) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email as string },
-          select: { role: true },
+          select: { role: true, clinicId: true },
         })
         if (dbUser) {
           token.role = dbUser.role
+          token.clinicId = dbUser.clinicId
           token.roleCheckedAt = Date.now()
         }
       }
@@ -75,6 +78,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.role = token.role as string
         session.user.id = token.id as string
+        session.user.clinicId = token.clinicId as string | null
       }
       return session
     },

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { patientSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 import bcrypt from 'bcryptjs'
 
@@ -12,12 +12,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
-    const clinicId = searchParams.get('clinicId')
     const search = searchParams.get('search')
 
-    const where: any = { isActive: true }
-    if (clinicId) where.clinicId = clinicId
+    const where: any = { isActive: true, clinicId }
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -57,6 +60,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only doctors and receptionists can create patients' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const body = await req.json()
     const validatedData = patientSchema.parse(body)
     const { initialPassword, ...patientData } = body
@@ -90,7 +98,7 @@ export async function POST(req: Request) {
         allergies: validatedData.allergies || undefined,
         medications: validatedData.medications || undefined,
         emergencyContact: validatedData.emergencyContact || undefined,
-        clinicId: validatedData.clinicId || undefined,
+        clinicId,
         consentGiven: true,
         consentDate: new Date(),
         passwordHash,
@@ -100,6 +108,7 @@ export async function POST(req: Request) {
 
     await auditLog({
       userId: session.user.id,
+      clinicId,
       action: 'CREATE_PATIENT',
       entity: 'Patient',
       entityId: patient.id,

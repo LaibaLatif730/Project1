@@ -18,3 +18,9 @@ export async function requireRole(...roles: string[]) {
   if (!roles.includes(session.user.role)) return null
   return session
 }
+
+export async function getClinicIdFromSession(): Promise<string | null> {
+  const session = await requireAuth()
+  if (!session) return null
+  return (session.user as any).clinicId as string | null
+}

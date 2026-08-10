@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { treatmentSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET(req: Request) {
   try {
@@ -10,13 +10,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get('patientId')
-    const clinicId = searchParams.get('clinicId')
 
-    const where: any = {}
+    const where: any = { clinicId }
     if (patientId) where.patientId = patientId
-    if (clinicId) where.clinicId = clinicId
 
     const treatments = await prisma.treatment.findMany({
       where,
@@ -47,6 +48,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only doctors can create treatments' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const body = await req.json()
     const validatedData = treatmentSchema.parse(body)
     const numberOfCheckIns = Math.min(Math.max(parseInt(body.numberOfCheckIns) || 5, 0), 30)
@@ -67,7 +71,7 @@ export async function POST(req: Request) {
       data: {
         patientId: validatedData.patientId,
         doctorId: validatedData.doctorId || undefined,
-        clinicId: validatedData.clinicId || undefined,
+        clinicId,
         type: validatedData.type,
         productName: validatedData.productName || undefined,
         units: validatedData.units || undefined,
@@ -92,6 +96,7 @@ export async function POST(req: Request) {
               patientId: validatedData.patientId,
               dayNumber,
               scheduledDate: new Date(treatmentDate.getTime() + dayNumber * 24 * 60 * 60 * 1000),
+              clinicId,
             },
           })
         })
@@ -119,12 +124,18 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Only doctors can update treatments' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const body = await req.json()
     const { id, ...updateData } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Treatment ID is required' }, { status: 400 })
     }
+
+    const existing = await prisma.treatment.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const allowedFields: Record<string, any> = {}
     if (updateData.type) allowedFields.type = updateData.type
@@ -158,12 +169,18 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Only doctors can delete treatments' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'Treatment ID is required' }, { status: 400 })
     }
+
+    const existing = await prisma.treatment.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     await prisma.treatment.delete({ where: { id } })
 

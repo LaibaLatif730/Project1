@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function POST(
@@ -16,12 +16,17 @@ export async function POST(
       return NextResponse.json({ error: 'Only doctors and receptionists can reject intakes' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic associated with session' }, { status: 400 })
+    }
+
     const { id } = await params
     const body = await req.json()
     const { reason } = body
 
-    const intake = await prisma.whatsAppIntake.findUnique({
-      where: { id },
+    const intake = await prisma.whatsAppIntake.findFirst({
+      where: { id, clinicId },
     })
 
     if (!intake) {

@@ -13,7 +13,7 @@ export async function GET() {
     // Always fetch the role from the database to ensure accuracy
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, clinicId: true },
     })
 
     if (!user) {

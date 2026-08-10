@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,6 +12,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const { id } = await params
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    const existing = await prisma.clinicalNote.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     const body = await req.json()
 
     const old = await prisma.clinicalNote.findUnique({ where: { id }, select: { content: true, noteType: true } })
@@ -50,6 +56,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const { id } = await params
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    const existing = await prisma.clinicalNote.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     await prisma.clinicalNote.delete({ where: { id } })
 

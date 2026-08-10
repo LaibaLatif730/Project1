@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { parseClinicalQuery } from '@/lib/utils'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function POST(req: Request) {
   try {
@@ -11,11 +11,14 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { query, clinicId } = body
+    const { query } = body
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
 
     const parsed = parseClinicalQuery(query)
     let results: any = {}
@@ -27,7 +30,7 @@ export async function POST(req: Request) {
         cutoffDate.setDate(cutoffDate.getDate() - days)
 
         const patients = await prisma.patient.findMany({
-          where: clinicId ? { clinicId } : {},
+          where: { clinicId },
           include: {
             treatments: {
               include: {
@@ -77,6 +80,7 @@ export async function POST(req: Request) {
       case 'MISSED_CHECKIN': {
         const missedCheckIns = await prisma.recoveryCheckIn.findMany({
           where: {
+            clinicId,
             status: 'PENDING',
             scheduledDate: { lt: new Date() },
           },
@@ -107,6 +111,7 @@ export async function POST(req: Request) {
       case 'VASCULAR_ALERTS': {
         const complications = await prisma.complicationRecord.findMany({
           where: {
+            clinicId,
             complicationType: { in: ['VASCULAR_OCCLUSION', 'SKIN_NECROSIS'] },
           },
           include: {
@@ -139,6 +144,9 @@ export async function POST(req: Request) {
 
       case 'COMPLICATIONS': {
         const complications = await prisma.complicationRecord.findMany({
+          where: {
+            clinicId,
+          },
           include: {
             patient: { select: { id: true, firstName: true, lastName: true } },
             treatment: { select: { id: true, type: true, treatmentDate: true, productName: true } },
@@ -169,6 +177,7 @@ export async function POST(req: Request) {
         const searchTerm = parsed.filters.search || query
         const patients = await prisma.patient.findMany({
           where: {
+            clinicId,
             OR: [
               { firstName: { contains: searchTerm, mode: 'insensitive' } },
               { lastName: { contains: searchTerm, mode: 'insensitive' } },

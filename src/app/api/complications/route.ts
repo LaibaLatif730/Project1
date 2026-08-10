@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { complicationSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET(req: Request) {
   try {
@@ -10,13 +10,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get('patientId')
     const treatmentId = searchParams.get('treatmentId')
     const severity = searchParams.get('severity')
     const complicationType = searchParams.get('type')
 
-    const where: any = {}
+    const where: any = { clinicId }
     if (patientId) where.patientId = patientId
     if (treatmentId) where.treatmentId = treatmentId
     if (severity) where.severity = severity
@@ -49,6 +54,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only doctors can create complications' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const body = await req.json()
     const validatedData = complicationSchema.parse(body)
 
@@ -65,6 +75,7 @@ export async function POST(req: Request) {
         outcome: validatedData.outcome,
         batchNumber: validatedData.batchNumber,
         productUsed: validatedData.productUsed,
+        clinicId,
       },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET() {
   try {
@@ -10,7 +10,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const doctors = await prisma.doctor.findMany({
+      where: { clinicId },
       include: {
         user: { select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true } },
         _count: { select: { treatments: true, appointments: true } },
@@ -36,8 +40,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const body = await req.json()
-    const { name, email, password, phone, specialty, licenseNo, clinicId } = body
+    const { name, email, password, phone, specialty, licenseNo } = body
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 })
@@ -57,7 +64,7 @@ export async function POST(req: Request) {
         password: hashedPassword,
         phone: phone || undefined,
         role: 'DOCTOR',
-        clinicId: clinicId || undefined,
+        clinicId,
       },
     })
 
@@ -66,7 +73,7 @@ export async function POST(req: Request) {
         userId: user.id,
         specialty: specialty || undefined,
         licenseNo: licenseNo || undefined,
-        clinicId: clinicId || undefined,
+        clinicId,
       },
       include: {
         user: { select: { id: true, name: true, email: true, phone: true } },
@@ -91,6 +98,9 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const body = await req.json()
     const { id, isActive, specialty, licenseNo, name, email, phone } = body
 
@@ -98,8 +108,8 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Doctor ID is required' }, { status: 400 })
     }
 
-    const doctor = await prisma.doctor.findUnique({
-      where: { id },
+    const doctor = await prisma.doctor.findFirst({
+      where: { id, clinicId },
       select: { userId: true },
     })
 
@@ -150,6 +160,9 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
@@ -157,8 +170,8 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Doctor ID is required' }, { status: 400 })
     }
 
-    const doctor = await prisma.doctor.findUnique({
-      where: { id },
+    const doctor = await prisma.doctor.findFirst({
+      where: { id, clinicId },
       select: { userId: true, _count: { select: { treatments: true, appointments: true } } },
     })
 

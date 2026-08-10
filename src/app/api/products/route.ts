@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { productSchema, productBatchSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET(req: Request) {
   try {
@@ -10,13 +10,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const category = searchParams.get('category')
-    const clinicId = searchParams.get('clinicId')
 
-    const where: any = { isActive: true }
+    const where: any = { isActive: true, clinicId }
     if (category) where.category = category
-    if (clinicId) where.clinicId = clinicId
 
     const products = await prisma.product.findMany({
       where,
@@ -44,6 +47,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const body = await req.json()
     const validatedData = productSchema.parse(body)
 
@@ -53,7 +61,7 @@ export async function POST(req: Request) {
         category: validatedData.category,
         manufacturer: validatedData.manufacturer,
         description: validatedData.description,
-        clinicId: validatedData.clinicId || undefined,
+        clinicId,
       },
     })
 
@@ -77,6 +85,11 @@ export async function PUT(req: Request) {
     if (!id) {
       return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
     }
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    const existingProduct = await prisma.product.findFirst({ where: { id, clinicId } })
+    if (!existingProduct) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const allowedFields: Record<string, any> = {}
     if (updateData.name) allowedFields.name = updateData.name
@@ -125,6 +138,11 @@ export async function DELETE(req: Request) {
     if (!id) {
       return NextResponse.json({ error: 'Product ID is required' }, { status: 400 })
     }
+
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    const existingProduct = await prisma.product.findFirst({ where: { id, clinicId } })
+    if (!existingProduct) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     await prisma.product.update({
       where: { id },

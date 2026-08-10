@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function POST(req: Request) {
@@ -13,6 +13,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only doctors can trigger ad-hoc check-ins' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const body = await req.json()
     const { patientId, treatmentId } = body
 
@@ -20,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'patientId is required' }, { status: 400 })
     }
 
-    const patient = await prisma.patient.findUnique({ where: { id: patientId } })
+    const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId } })
     if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
@@ -54,6 +59,7 @@ export async function POST(req: Request) {
       data: {
         treatmentId: treatment.id,
         patientId,
+        clinicId,
         dayNumber: nextDay,
         scheduledDate: new Date(),
         status: 'PENDING',

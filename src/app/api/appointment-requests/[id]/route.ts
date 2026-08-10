@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function PATCH(
@@ -25,13 +25,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'Action must be "approve" or "reject"' }, { status: 400 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const appointment = await prisma.appointment.findUnique({
       where: { id },
-      include: { patient: { select: { id: true, firstName: true, lastName: true, userId: true } } },
+      include: { patient: { select: { id: true, firstName: true, lastName: true, userId: true, clinicId: true } } },
     })
 
     if (!appointment) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
+    }
+
+    if (appointment.patient.clinicId !== clinicId) {
+      return NextResponse.json({ error: 'Appointment does not belong to this clinic' }, { status: 403 })
     }
 
     if (appointment.status !== 'PENDING_APPROVAL') {

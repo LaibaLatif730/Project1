@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const MAX_SIZE = 10 * 1024 * 1024
@@ -12,11 +12,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Missing clinicId' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get('patientId')
     const checkInId = searchParams.get('checkInId')
 
-    const where: any = {}
+    const where: any = { patient: { clinicId } }
     if (patientId) where.patientId = patientId
     if (checkInId) where.checkInId = checkInId
 
@@ -42,6 +47,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const formData = await req.formData()
     const file = formData.get('file') as File
     const patientId = formData.get('patientId') as string
@@ -52,6 +62,11 @@ export async function POST(req: Request) {
         { error: 'File and patientId are required' },
         { status: 400 }
       )
+    }
+
+    const patient = await prisma.patient.findFirst({ where: { id: patientId, clinicId } })
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -74,6 +89,7 @@ export async function POST(req: Request) {
     const photo = await prisma.patientPhoto.create({
       data: {
         patientId,
+        clinicId,
         checkInId: checkInId || undefined,
         imageUrl: `/uploads/${Date.now()}-${file.name}`,
         metadata: JSON.stringify({

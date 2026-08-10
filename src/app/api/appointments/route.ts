@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { appointmentSchema } from '@/lib/validators'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function GET(req: Request) {
@@ -11,16 +11,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get('patientId')
     const doctorId = searchParams.get('doctorId')
-    const clinicId = searchParams.get('clinicId')
     const date = searchParams.get('date')
 
-    const where: any = {}
+    const where: any = { clinicId }
     if (patientId) where.patientId = patientId
     if (doctorId) where.doctorId = doctorId
-    if (clinicId) where.clinicId = clinicId
     if (date) {
       const startOfDay = new Date(date + 'T00:00:00.000Z')
       const endOfDay = new Date(date + 'T23:59:59.999Z')
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only receptionists can create appointments' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const body = await req.json()
     const validatedData = appointmentSchema.parse(body)
 
@@ -64,6 +68,7 @@ export async function POST(req: Request) {
     const patient = await prisma.patient.findFirst({
       where: {
         isActive: true,
+        clinicId,
         firstName: { contains: firstName, mode: 'insensitive' },
         ...(lastName !== firstName ? { lastName: { contains: lastName, mode: 'insensitive' } } : {}),
       },
@@ -81,6 +86,7 @@ export async function POST(req: Request) {
     const patientConflict = await prisma.appointment.findFirst({
       where: {
         patientId: patient.id,
+        clinicId,
         status: { notIn: ['CANCELLED', 'NO_SHOW'] },
         appointmentDate: { gte: startWindow, lt: endWindow },
       },
@@ -97,6 +103,7 @@ export async function POST(req: Request) {
       ? await prisma.appointment.findFirst({
           where: {
             doctorId: validatedData.doctorId,
+            clinicId,
             status: { notIn: ['CANCELLED', 'NO_SHOW'] },
             appointmentDate: { gte: startWindow, lt: endWindow },
           },
@@ -117,7 +124,7 @@ export async function POST(req: Request) {
       data: {
         patientId: patient.id,
         doctorId: validatedData.doctorId || undefined,
-        clinicId: validatedData.clinicId || undefined,
+        clinicId,
         appointmentDate: new Date(validatedData.appointmentDate),
         duration: validatedData.duration,
         type: validatedData.type,
@@ -133,6 +140,7 @@ export async function POST(req: Request) {
       action: 'CREATE_APPOINTMENT',
       entity: 'Appointment',
       entityId: appointment.id,
+      clinicId,
       newValues: { patientId: patient.id, doctorId: validatedData.doctorId, appointmentDate, type: validatedData.type },
     })
 
@@ -153,12 +161,18 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Only receptionists can update appointments' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const body = await req.json()
     const { id, ...updateData } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 })
     }
+
+    const existing = await prisma.appointment.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const allowedFields: Record<string, any> = {}
     if (updateData.status) allowedFields.status = updateData.status
@@ -187,6 +201,7 @@ export async function PATCH(req: Request) {
       action: 'UPDATE_APPOINTMENT',
       entity: 'Appointment',
       entityId: id,
+      clinicId,
       oldValues: old ? { status: old.status, appointmentDate: old.appointmentDate, notes: old.notes } : undefined,
       newValues: allowedFields,
     })
@@ -208,12 +223,18 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Only receptionists can delete appointments' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'Appointment ID is required' }, { status: 400 })
     }
+
+    const existing = await prisma.appointment.findFirst({ where: { id, clinicId } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     await prisma.appointment.delete({ where: { id } })
 
@@ -222,6 +243,7 @@ export async function DELETE(req: Request) {
       action: 'DELETE_APPOINTMENT',
       entity: 'Appointment',
       entityId: id,
+      clinicId,
     })
 
     return NextResponse.json({ success: true })

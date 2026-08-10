@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 import { auditLog } from '@/lib/audit-log'
 
 export async function GET(
@@ -13,11 +13,16 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const { id } = await params
     const role = session.user.role
 
-    const patient = await prisma.patient.findUnique({
-      where: { id },
+    const patient = await prisma.patient.findFirst({
+      where: { id, clinicId },
       include: {
         treatments: {
           include: {
@@ -51,6 +56,7 @@ export async function GET(
 
     await auditLog({
       userId: session.user.id,
+      clinicId,
       action: 'VIEW_PATIENT',
       entity: 'Patient',
       entityId: id,
@@ -117,8 +123,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const { id } = await params
     const body = await req.json()
+
+    const existing = await prisma.patient.findFirst({ where: { id, clinicId } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
+    }
 
     const allowedFields: Record<string, any> = {}
     if (body.firstName) allowedFields.firstName = body.firstName
@@ -155,7 +171,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic assigned' }, { status: 400 })
+    }
+
     const { id } = await params
+
+    const existing = await prisma.patient.findFirst({ where: { id, clinicId } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
+    }
+
     await prisma.patient.update({
       where: { id },
       data: { isActive: false },

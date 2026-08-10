@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { requireAuth } from '@/lib/api-auth'
+import { requireAuth, getClinicIdFromSession } from '@/lib/api-auth'
 
 export async function GET(req: Request) {
   try {
@@ -12,13 +12,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
+    const clinicId = await getClinicIdFromSession()
+    if (!clinicId) {
+      return NextResponse.json({ error: 'No clinic associated with session' }, { status: 400 })
+    }
+
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || 'PENDING'
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
 
-    const where = status === 'ALL' ? {} : { status }
+    const where: any = { clinicId }
+    if (status !== 'ALL') {
+      where.status = status
+    }
 
     const [intakes, total] = await Promise.all([
       prisma.whatsAppIntake.findMany({
