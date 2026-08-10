@@ -11,7 +11,9 @@ export default function DashboardPage() {
     fetch('/api/auth/me')
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d?.role === 'ADMIN') {
+        if (d?.role === 'SUPERADMIN') {
+          router.replace('/dashboard/super-admin')
+        } else if (d?.role === 'ADMIN') {
           router.replace('/dashboard/admin')
         } else if (d?.role === 'DOCTOR') {
           router.replace('/dashboard/doctor')

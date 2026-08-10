@@ -75,6 +75,19 @@ export async function proxy(req: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
+    // SuperAdmin can ONLY access /dashboard/super-admin
+    if (role === 'SUPERADMIN') {
+      if (!pathname.startsWith('/dashboard/super-admin')) {
+        return NextResponse.redirect(new URL('/dashboard/super-admin', req.url))
+      }
+      return NextResponse.next()
+    }
+
+    // Staff cannot access super-admin path
+    if (pathname.startsWith('/dashboard/super-admin')) {
+      return NextResponse.redirect(new URL('/dashboard', req.url))
+    }
+
     // Admin cannot access staff-only paths
     if (role === 'ADMIN') {
       const isStaffPath = STAFF_ONLY_PATHS.some(

@@ -192,6 +192,18 @@ async function seedClinic(name: string, suffix: string) {
 async function main() {
   console.log('Seeding multi-clinic database...')
 
+  // Create SuperAdmin (no clinicId — platform-level)
+  const superAdminPassword = await bcrypt.hash('superadmin123', 12)
+  const superAdmin = await prisma.user.create({
+    data: {
+      name: 'Super Admin',
+      email: 'superadmin@platform.com',
+      password: superAdminPassword,
+      role: 'SUPERADMIN',
+    },
+  })
+  console.log(`\nSuperAdmin: superadmin@platform.com / superadmin123`)
+
   await seedClinic('Aesthetic Beauty Clinic', 'alpha')
   await seedClinic('Glow Wellness Spa', 'beta')
 
