@@ -53,6 +53,7 @@ model Clinic {
   users     User[]
   doctors   Doctor[]
   patients  Patient[]
+  appointments Appointment[]
   treatments Treatment[]
   products  Product[]
   checkIns  RecoveryCheckIn[]
@@ -70,6 +71,7 @@ model Clinic {
   reviews         Review[]
   auditLogs       AuditLog[]
   silenceRiskLogs SilenceRiskLog[]
+  errorLogs       ErrorLog[]
 
   @@index([name])
 }
@@ -512,6 +514,7 @@ model Appointment {
   userId              String?
   user                User?    @relation("AppointmentUser", fields: [userId], references: [id])
   clinicId            String?
+  clinic              Clinic?  @relation(fields: [clinicId], references: [id])
   appointmentDate     DateTime
   duration            Int      @default(30)
   type                String   @default("CONSULTATION")
@@ -659,4 +662,33 @@ model SilenceRiskLog {
   @@index([patientId])
   @@index([escalationLevel])
   @@index([detectedAt])
+}
+
+// ─── Monitoring & Error Tracking ──────────────────────────────
+
+model ErrorLog {
+  id          String   @id @default(cuid())
+  clinicId    String?
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
+  level       String   @default("ERROR") // INFO, WARN, ERROR, CRITICAL
+  source      String                     // API, CRON, WEBHOOK, AUTH, CLIENT
+  category    String                     // whatsapp_webhook, cron_job, auth, api_route, ai_analysis, db, unknown
+  message     String
+  stackTrace  String?
+  metadata    String?  @db.Text          // JSON string with extra context
+  statusCode  Int?
+  endpoint    String?
+  method      String?
+  userId      String?
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+
+  @@index([clinicId])
+  @@index([level])
+  @@index([category])
+  @@index([source])
+  @@index([createdAt])
+  @@index([resolved])
 }

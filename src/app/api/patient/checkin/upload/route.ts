@@ -5,6 +5,7 @@ import { join } from 'path'
 import { analyzeWithGrok, compareWithPreviousAnalysis } from '@/lib/grok'
 import { resizeImage } from '@/lib/image-utils'
 import { requirePatientAuth } from '@/lib/patient-auth'
+import { logAIError } from '@/lib/error-logger'
 
 export async function POST(req: Request) {
   try {
@@ -198,6 +199,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     console.error('Error uploading photo:', error)
+    await logAIError('AI photo analysis upload failed', error, undefined, { endpoint: '/api/patient/checkin/upload' })
     const message = error instanceof Error ? error.message : 'Photo upload failed'
     return NextResponse.json({ error: message }, { status: 500 })
   }

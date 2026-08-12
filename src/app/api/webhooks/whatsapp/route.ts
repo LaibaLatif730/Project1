@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { parseWhatsAppWebhook, sendWhatsAppMessage, verifyWhatsAppSignature } from '@/lib/whatsapp'
 import { analyzeWithGrok, compareWithPreviousAnalysis } from '@/lib/grok'
 import { resizeImage } from '@/lib/image-utils'
+import { logWhatsAppWebhookError } from '@/lib/error-logger'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -358,6 +359,7 @@ AI Clinic Assistant`
         })
       } catch (msgError) {
         console.error(`[WHATSAPP] Failed to process message ${message.id}:`, msgError)
+        await logWhatsAppWebhookError(`Failed to process message ${message.id}`, msgError, undefined, { messageId: message.id })
         continue
       }
     }
@@ -365,6 +367,7 @@ AI Clinic Assistant`
     return NextResponse.json({ status: 'ok' })
   } catch (error) {
     console.error('WhatsApp webhook error:', error)
+    await logWhatsAppWebhookError('WhatsApp webhook processing failed', error, undefined, { endpoint: '/api/webhooks/whatsapp', method: 'POST' })
     return NextResponse.json({ status: 'ok' })
   }
 }
