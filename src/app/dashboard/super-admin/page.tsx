@@ -271,6 +271,11 @@ export default function SuperAdminDashboard() {
   }
 
   const handleAssignAdmin = async (clinicId: string) => {
+    // Guard: prevent assigning if admin already exists
+    if (clinicAdmins[clinicId]) {
+      setMessage('This clinic already has an admin. Remove the existing admin first.')
+      return
+    }
     setSubmitting(true)
     setMessage('')
     try {
@@ -579,23 +584,30 @@ export default function SuperAdminDashboard() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {clinicAdmins[clinic.id] ? (
+                        {clinicsLoading || !(clinic.id in clinicAdmins) ? (
+                          <span className="px-3 py-1 text-white/30 text-sm">Loading...</span>
+                        ) : clinicAdmins[clinic.id] ? (
                           <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium">
-                              Admin Assigned
-                            </span>
+                            <div className="text-right">
+                              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium block">
+                                Admin Assigned
+                              </span>
+                              <span className="text-white/40 text-xs mt-1 block">
+                                {clinicAdmins[clinic.id]?.email}
+                              </span>
+                            </div>
                             <Button
                               size="sm"
                               onClick={() => {
-                                if (confirm(`Replace admin ${clinicAdmins[clinic.id]?.email}?`)) {
+                                if (confirm(`Remove admin "${clinicAdmins[clinic.id]?.email}" from ${clinic.name}? You can then assign a new one.`)) {
                                   handleRemoveAdmin(clinic.id, clinicAdmins[clinic.id]!.id)
                                 }
                               }}
                               variant="outline"
-                              className="text-amber-400 border-amber-500/30"
+                              className="text-red-400 border-red-500/30"
                               disabled={submitting}
                             >
-                              Replace
+                              Remove Admin
                             </Button>
                           </div>
                         ) : (
