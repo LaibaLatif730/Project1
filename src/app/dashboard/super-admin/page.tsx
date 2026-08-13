@@ -166,6 +166,7 @@ export default function SuperAdminDashboard() {
   // Assign admin modal
   const [showAdmin, setShowAdmin] = useState<string | null>(null)
   const [adminForm, setAdminForm] = useState({ name: '', email: '', password: '' })
+  const [modalError, setModalError] = useState('')
 
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -273,11 +274,11 @@ export default function SuperAdminDashboard() {
   const handleAssignAdmin = async (clinicId: string) => {
     // Guard: prevent assigning if admin already exists
     if (clinicAdmins[clinicId]) {
-      setMessage('This clinic already has an admin. Remove the existing admin first.')
+      setModalError('This clinic already has an admin. Remove the existing admin first.')
       return
     }
     setSubmitting(true)
-    setMessage('')
+    setModalError('')
     try {
       const res = await fetch(`/api/clinics/${clinicId}/admin`, {
         method: 'POST',
@@ -289,15 +290,16 @@ export default function SuperAdminDashboard() {
         setMessage('Admin assigned successfully!')
         setClinicAdmins((prev) => ({ ...prev, [clinicId]: newAdmin }))
         setAdminForm({ name: '', email: '', password: '' })
+        setModalError('')
         setShowAdmin(null)
         fetchClinics()
         setTimeout(() => setMessage(''), 3000)
       } else {
         const data = await res.json()
-        setMessage(data.error || 'Failed to assign admin')
+        setModalError(data.error || 'Failed to assign admin')
       }
     } catch {
-      setMessage('Error assigning admin')
+      setModalError('Error assigning admin')
     } finally {
       setSubmitting(false)
     }
@@ -760,6 +762,17 @@ export default function SuperAdminDashboard() {
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
             <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md">
               <h2 className="text-xl font-bold text-white mb-4">Assign Clinic Admin</h2>
+
+              {/* Error inside modal */}
+              {modalError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-sm flex items-start gap-2">
+                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{modalError}</span>
+                </div>
+              )}
+
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
@@ -767,27 +780,36 @@ export default function SuperAdminDashboard() {
                 }}
                 className="space-y-4"
               >
-                <Input
-                  placeholder="Admin Name *"
-                  value={adminForm.name}
-                  onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })}
-                  required
-                />
-                <Input
-                  placeholder="Admin Email *"
-                  type="email"
-                  value={adminForm.email}
-                  onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
-                  required
-                />
-                <Input
-                  placeholder="Password *"
-                  type="password"
-                  value={adminForm.password}
-                  onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
-                  required
-                  minLength={6}
-                />
+                <div>
+                  <label className="text-white/60 text-sm mb-1 block">Admin Name *</label>
+                  <Input
+                    placeholder="Full name"
+                    value={adminForm.name}
+                    onChange={(e) => { setAdminForm({ ...adminForm, name: e.target.value }); setModalError('') }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-white/60 text-sm mb-1 block">Admin Email *</label>
+                  <Input
+                    placeholder="email@example.com"
+                    type="email"
+                    value={adminForm.email}
+                    onChange={(e) => { setAdminForm({ ...adminForm, email: e.target.value }); setModalError('') }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-white/60 text-sm mb-1 block">Password *</label>
+                  <Input
+                    placeholder="Min 6 characters"
+                    type="password"
+                    value={adminForm.password}
+                    onChange={(e) => { setAdminForm({ ...adminForm, password: e.target.value }); setModalError('') }}
+                    required
+                    minLength={6}
+                  />
+                </div>
                 <div className="flex gap-3">
                   <Button
                     type="submit"
@@ -798,7 +820,7 @@ export default function SuperAdminDashboard() {
                   </Button>
                   <Button
                     type="button"
-                    onClick={() => setShowAdmin(null)}
+                    onClick={() => { setShowAdmin(null); setModalError(''); setAdminForm({ name: '', email: '', password: '' }) }}
                     variant="outline"
                     className="text-white border-gray-600"
                   >
