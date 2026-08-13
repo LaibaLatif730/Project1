@@ -20,15 +20,24 @@ async function seedClinic(name: string, suffix: string) {
   const doctorPassword = await bcrypt.hash('doctor123', 12)
   const receptionistPassword = await bcrypt.hash('patient123', 12)
 
-  const adminUser = await prisma.user.create({
-    data: {
-      name: `Admin ${name}`,
-      email: `admin@${suffix}clinic.com`,
-      password: adminPassword,
-      role: 'ADMIN',
-      clinicId: clinic.id,
-    },
-  })
+  const adminEmail = `admin@${suffix}clinic.com`
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } })
+  
+  let adminUser
+  if (existingAdmin) {
+    console.log(`  Admin already exists: ${adminEmail}`)
+    adminUser = existingAdmin
+  } else {
+    adminUser = await prisma.user.create({
+      data: {
+        name: `Admin ${name}`,
+        email: adminEmail,
+        password: adminPassword,
+        role: 'ADMIN',
+        clinicId: clinic.id,
+      },
+    })
+  }
 
   const doctorUser = await prisma.user.create({
     data: {

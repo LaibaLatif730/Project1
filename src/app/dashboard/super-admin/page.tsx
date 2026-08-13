@@ -79,7 +79,14 @@ interface Clinic {
   _count: ClinicCount
 }
 
-type Tab = 'overview' | 'clinics' | 'create'
+interface ClinicAdmin {
+  id: string
+  name: string | null
+  email: string
+  role: string
+}
+
+type Tab = 'overview' | 'clinics' | 'create' | 'admins'
 
 // ---------------------------------------------------------------------------
 // Helper Components
@@ -141,6 +148,11 @@ export default function SuperAdminDashboard() {
   // Clinics data
   const [clinics, setClinics] = useState<Clinic[]>([])
   const [clinicsLoading, setClinicsLoading] = useState(true)
+  const [clinicAdmins, setClinicAdmins] = useState<Record<string, ClinicAdmin | null>>({})
+
+  // Admins data
+  const [allAdmins, setAllAdmins] = useState<ClinicAdmin[]>([])
+  const [adminsLoading, setAdminsLoading] = useState(true)
 
   // Create clinic form
   const [createForm, setCreateForm] = useState({
@@ -165,6 +177,7 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     fetchStats()
     fetchClinics()
+    fetchAllAdmins()
   }, [])
 
   const fetchStats = async () => {
@@ -184,12 +197,45 @@ export default function SuperAdminDashboard() {
     try {
       const res = await fetch('/api/clinics')
       if (res.ok) {
-        setClinics(await res.json())
+        const clinicsData = await res.json()
+        setClinics(clinicsData)
+        await fetchClinicAdmins(clinicsData)
       }
     } catch (e) {
       console.error('Failed to fetch clinics:', e)
     } finally {
       setClinicsLoading(false)
+    }
+  }
+
+  const fetchClinicAdmins = async (clinicsData: Clinic[]) => {
+    const adminsMap: Record<string, ClinicAdmin | null> = {}
+    await Promise.all(
+      clinicsData.map(async (clinic) => {
+        try {
+          const res = await fetch(`/api/clinics/${clinic.id}/admin`)
+          if (res.ok) {
+            const data = await res.json()
+            adminsMap[clinic.id] = data.admin || null
+          }
+        } catch (e) {
+          console.error(`Failed to fetch admin for clinic ${clinic.id}:`, e)
+        }
+      })
+    )
+    setClinicAdmins(adminsMap)
+  }
+
+  const fetchAllAdmins = async () => {
+    try {
+      const res = await fetch('/api/super-admin/admins')
+      if (res.ok) {
+        setAllAdmins(await res.json())
+      }
+    } catch (e) {
+      console.error('Failed to fetch admins:', e)
+    } finally {
+      setAdminsLoading(false)
     }
   }
 
@@ -234,7 +280,9 @@ export default function SuperAdminDashboard() {
         body: JSON.stringify(adminForm),
       })
       if (res.ok) {
+        const newAdmin = await res.json()
         setMessage('Admin assigned successfully!')
+        setClinicAdmins((prev) => ({ ...prev, [clinicId]: newAdmin }))
         setAdminForm({ name: '', email: '', password: '' })
         setShowAdmin(null)
         fetchClinics()
@@ -245,6 +293,33 @@ export default function SuperAdminDashboard() {
       }
     } catch {
       setMessage('Error assigning admin')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleRemoveAdmin = async (clinicId: string, adminId: string) => {
+    if (!confirm('Are you sure you want to remove this admin?')) return
+    
+    setSubmitting(true)
+    setMessage('')
+    try {
+      const res = await fetch(`/api/clinics/${clinicId}/admin`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId }),
+      })
+      if (res.ok) {
+        setMessage('Admin removed successfully!')
+        setClinicAdmins((prev) => ({ ...prev, [clinicId]: null }))
+        fetchClinics()
+        setTimeout(() => setMessage(''), 3000)
+      } else {
+        const data = await res.json()
+        setMessage(data.error || 'Failed to remove admin')
+      }
+    } catch {
+      setMessage('Error removing admin')
     } finally {
       setSubmitting(false)
     }
@@ -308,6 +383,7 @@ export default function SuperAdminDashboard() {
             [
               { key: 'overview', label: 'Overview' },
               { key: 'clinics', label: 'Clinics' },
+              { key: 'admins', label: 'Admins' },
               { key: 'create', label: 'Create Clinic' },
             ] as const
           ).map((t) => (
@@ -503,13 +579,34 @@ export default function SuperAdminDashboard() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => setShowAdmin(clinic.id)}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                        >
-                          Assign Admin
-                        </Button>
+                        {clinicAdmins[clinic.id] ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium">
+                              Admin Assigned
+                            </span>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`Replace admin ${clinicAdmins[clinic.id]?.email}?`)) {
+                                  handleRemoveAdmin(clinic.id, clinicAdmins[clinic.id]!.id)
+                                }
+                              }}
+                              variant="outline"
+                              className="text-amber-400 border-amber-500/30"
+                              disabled={submitting}
+                            >
+                              Replace
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => setShowAdmin(clinic.id)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            Assign Admin
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => toggleActive(clinic)}
@@ -526,6 +623,57 @@ export default function SuperAdminDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* ADMINS TAB                                                       */}
+        {/* ================================================================ */}
+        {tab === 'admins' && (
+          <div>
+            {adminsLoading ? (
+              <div className="text-center text-white/60 py-12">Loading admins...</div>
+            ) : allAdmins.length === 0 ? (
+              <div className="text text-white/60 py-12">
+                No admins found. Assign admins to clinics from the Clinics tab.
+              </div>
+            ) : (
+              <div className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6">
+                <h2 className="text-xl font-bold text-white mb-4">All Clinic Admins</h2>
+                <p className="text-white/50 text-sm mb-6">
+                  Total: {allAdmins.length} admin(s) across all clinics
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left py-3 px-4 text-white/60 font-medium">Name</th>
+                        <th className="text-left py-3 px-4 text-white/60 font-medium">Email</th>
+                        <th className="text-left py-3 px-4 text-white/60 font-medium">Role</th>
+                        <th className="text-left py-3 px-4 text-white/60 font-medium">Clinic</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allAdmins.map((admin) => {
+                        const clinic = clinics.find((c) => clinicAdmins[c.id]?.id === admin.id)
+                        return (
+                          <tr key={admin.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                            <td className="py-3 px-4 text-white">{admin.name || 'N/A'}</td>
+                            <td className="py-3 px-4 text-white/70">{admin.email}</td>
+                            <td className="py-3 px-4">
+                              <span className="px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-full text-xs">
+                                {admin.role}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-white/70">{clinic?.name || 'Unknown'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
