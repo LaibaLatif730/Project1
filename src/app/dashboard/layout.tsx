@@ -263,13 +263,11 @@ export default function DashboardLayout({
               </svg>
             </button>
 
-            {/* Clinic name — left side, opposite the notification bell */}
+            {/* Clinic name — left side, labeled field style */}
             {clinicName && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30">
-                <svg className="w-5 h-5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <span className="text-white font-bold text-base tracking-wide">{clinicName}</span>
+              <div className="flex flex-col leading-none pl-1 border-l-2 border-indigo-500/40">
+                <span className="text-white/40 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Clinic</span>
+                <span className="text-white font-semibold text-sm">{clinicName}</span>
               </div>
             )}
 
