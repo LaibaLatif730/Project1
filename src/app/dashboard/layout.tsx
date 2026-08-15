@@ -181,9 +181,6 @@ export default function DashboardLayout({
               </div>
               <div className="flex flex-col leading-tight">
                 <span className="text-lg font-bold text-white">AI Clinic</span>
-                {clinicName && (
-                  <span className="text-white/80 text-sm font-medium">{clinicName}</span>
-                )}
               </div>
             </div>
             <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white">
@@ -221,9 +218,6 @@ export default function DashboardLayout({
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-lg font-bold text-white">AI Clinic</span>
-              {clinicName && (
-                <span className="text-white/80 text-sm font-medium">{clinicName}</span>
-              )}
             </div>
           </div>
           <nav className="flex flex-1 flex-col gap-2">
