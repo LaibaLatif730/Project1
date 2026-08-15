@@ -10,6 +10,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const isSuperAdmin = session.user.role === 'SUPERADMIN'
+    const callerClinicId = (session.user as any).clinicId as string | null
+
     const url = req.nextUrl
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100)
@@ -20,6 +23,11 @@ export async function GET(req: NextRequest) {
     const search = url.searchParams.get('search')
 
     const where: Record<string, unknown> = {}
+
+    // ADMIN sees only their clinic's errors; SUPERADMIN sees all
+    if (!isSuperAdmin && callerClinicId) {
+      where.clinicId = callerClinicId
+    }
 
     if (level) where.level = level
     if (category) where.category = category
@@ -82,11 +90,22 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const isSuperAdmin = session.user.role === 'SUPERADMIN'
+    const callerClinicId = (session.user as any).clinicId as string | null
+
     const body = await req.json()
     const { id, resolved } = body
 
     if (!id) {
       return NextResponse.json({ error: 'ID required' }, { status: 400 })
+    }
+
+    // For ADMIN, verify the error log belongs to their clinic before allowing update
+    if (!isSuperAdmin && callerClinicId) {
+      const log = await prisma.errorLog.findFirst({ where: { id, clinicId: callerClinicId } })
+      if (!log) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
     }
 
     const updated = await prisma.errorLog.update({

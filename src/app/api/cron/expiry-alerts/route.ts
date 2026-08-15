@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import prisma from '@/lib/db'
+import { logCronJobError } from '@/lib/error-logger'
 
 function verifyCronAuth(req: Request): boolean {
   const secret = process.env.CRON_SECRET
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Expiry alert error:', error)
+    await logCronJobError('expiry-alerts', 'Unhandled error in product expiry alerts cron', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

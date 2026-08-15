@@ -10,6 +10,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const isSuperAdmin = session.user.role === 'SUPERADMIN'
+    const callerClinicId = (session.user as any).clinicId as string | null
+
+    // ADMIN sees only their clinic's stats; SUPERADMIN sees all
+    const clinicFilter = !isSuperAdmin && callerClinicId
+      ? { clinicId: callerClinicId }
+      : {}
+
     const now = new Date()
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
@@ -25,22 +33,21 @@ export async function GET() {
       cronHealth,
       whatsappErrors24h,
     ] = await Promise.all([
-      prisma.errorLog.count(),
-      prisma.errorLog.count({ where: { createdAt: { gte: last24h } } }),
-      prisma.errorLog.groupBy({ by: ['level'], _count: { id: true }, where: { createdAt: { gte: last7d } } }),
-      prisma.errorLog.groupBy({ by: ['category'], _count: { id: true }, where: { createdAt: { gte: last7d } } }),
-      prisma.errorLog.groupBy({ by: ['source'], _count: { id: true }, where: { createdAt: { gte: last7d } } }),
-      prisma.errorLog.count({ where: { resolved: false } }),
-      prisma.errorLog.count({ where: { level: 'CRITICAL', resolved: false } }),
-      // Check cron job health - look for cron errors in last 24h
+      prisma.errorLog.count({ where: { ...clinicFilter } }),
+      prisma.errorLog.count({ where: { ...clinicFilter, createdAt: { gte: last24h } } }),
+      prisma.errorLog.groupBy({ by: ['level'], _count: { id: true }, where: { ...clinicFilter, createdAt: { gte: last7d } } }),
+      prisma.errorLog.groupBy({ by: ['category'], _count: { id: true }, where: { ...clinicFilter, createdAt: { gte: last7d } } }),
+      prisma.errorLog.groupBy({ by: ['source'], _count: { id: true }, where: { ...clinicFilter, createdAt: { gte: last7d } } }),
+      prisma.errorLog.count({ where: { ...clinicFilter, resolved: false } }),
+      prisma.errorLog.count({ where: { ...clinicFilter, level: 'CRITICAL', resolved: false } }),
       prisma.errorLog.findMany({
-        where: { source: 'CRON', createdAt: { gte: last24h } },
+        where: { ...clinicFilter, source: 'CRON', createdAt: { gte: last24h } },
         orderBy: { createdAt: 'desc' },
         take: 10,
         select: { message: true, createdAt: true, category: true },
       }),
       prisma.errorLog.count({
-        where: { category: 'whatsapp_webhook', createdAt: { gte: last24h } },
+        where: { ...clinicFilter, category: 'whatsapp_webhook', createdAt: { gte: last24h } },
       }),
     ])
 
@@ -60,6 +67,8 @@ export async function GET() {
         unresolvedCount,
         recentCritical,
         whatsappErrors24h,
+        // Surface whether this is scoped or global for the UI
+        scope: isSuperAdmin ? 'global' : 'clinic',
       },
       errorsByLevel: levelMap,
       errorsByCategory: catMap,

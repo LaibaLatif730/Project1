@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { detectSilenceRisks, getSilenceRiskStats } from '@/lib/silence-risk'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import prisma from '@/lib/db'
+import { logCronJobError } from '@/lib/error-logger'
 
 function verifyCronAuth(req: Request): boolean {
   const secret = process.env.CRON_SECRET
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Silence risk detection error:', error)
+    await logCronJobError('check-silence', 'Unhandled error in silence risk detection cron', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -99,6 +101,7 @@ export async function GET(req: Request) {
     return NextResponse.json(stats)
   } catch (error) {
     console.error('Error fetching silence risk stats:', error)
+    await logCronJobError('check-silence', 'Error fetching silence risk stats', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

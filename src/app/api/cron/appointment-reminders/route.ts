@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import prisma from '@/lib/db'
 import { auditLog } from '@/lib/audit-log'
+import { logCronJobError } from '@/lib/error-logger'
 
 function verifyCronAuth(req: Request): boolean {
   const secret = process.env.CRON_SECRET
@@ -139,6 +140,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ totalSent, totalEscalated, results })
   } catch (error) {
     console.error('Appointment reminder error:', error)
+    await logCronJobError('appointment-reminders', 'Unhandled error in appointment reminders cron', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
