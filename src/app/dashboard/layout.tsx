@@ -339,26 +339,38 @@ export default function DashboardLayout({
             </div>
 
             {/* User info */}
-            <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
-                {userName[0]}
-              </div>
-              <div className="hidden sm:flex flex-col leading-tight">
-                <span className="text-white/90 font-medium text-sm">
+            <div className="hidden sm:flex items-center gap-2">
+              {/* Avatar + name */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  {userName[0]}
+                </div>
+                <span className="text-white/90 font-medium text-sm whitespace-nowrap">
                   {userName}
                 </span>
-                {clinicName && (
-                  <span className="text-white/80 text-sm font-medium flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    {clinicName}
-                  </span>
-                )}
               </div>
-              <span className="badge-glass badge-info text-xs hidden sm:block">
+
+              {/* Role tag */}
+              <span className="badge-glass badge-info text-xs whitespace-nowrap">
                 {userRole}
               </span>
+
+              {/* Clinic tag */}
+              {clinicName && (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-xs font-medium whitespace-nowrap">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  {clinicName}
+                </span>
+              )}
+            </div>
+
+            {/* Mobile: avatar only */}
+            <div className="sm:hidden flex items-center gap-2 px-2 py-1.5 rounded-xl bg-white/5 border border-white/10">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                {userName[0]}
+              </div>
             </div>
 
             <Button onClick={handleLogout} className="btn-danger">
