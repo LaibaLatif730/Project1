@@ -265,13 +265,19 @@ export default function DashboardLayout({
 
             {/* Clinic name — labeled colored badge */}
             {clinicName && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30">
-                <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <div className="flex flex-col leading-none">
-                  <span className="text-indigo-400 text-[10px] font-semibold uppercase tracking-widest">Clinic</span>
-                  <span className="text-white font-semibold text-sm mt-0.5">{clinicName}</span>
+              <div className="hidden sm:flex items-center gap-2.5 pl-0 pr-4 py-1.5 rounded-xl overflow-hidden bg-indigo-500/10 border border-indigo-400/30">
+                {/* Left accent stripe */}
+                <div className="w-1 self-stretch bg-indigo-400 rounded-none" />
+                {/* Icon */}
+                <div className="w-6 h-6 rounded-lg bg-indigo-400/20 flex items-center justify-center shrink-0">
+                  <svg className="w-3.5 h-3.5 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                {/* Text */}
+                <div className="flex flex-col leading-tight">
+                  <span className="text-indigo-300 text-[9px] font-extrabold uppercase tracking-[0.15em]">Clinic</span>
+                  <span className="text-white font-bold text-base leading-none mt-0.5">{clinicName}</span>
                 </div>
               </div>
             )}
