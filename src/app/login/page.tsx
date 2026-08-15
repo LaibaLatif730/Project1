@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, Suspense, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -10,7 +11,6 @@ import { loginSchema } from '@/lib/validators'
 import { useZodForm } from '@/hooks/useZodForm'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const registered = searchParams.get('registered')
   const authError = searchParams.get('error')
@@ -35,38 +35,17 @@ function LoginForm() {
     const destination = callbackUrl ? decodeURIComponent(callbackUrl) : '/dashboard'
 
     try {
-      const csrfRes = await fetch('/api/auth/csrf')
-      const { csrfToken } = await csrfRes.json()
-
-      const callbackRes = await fetch('/api/auth/callback/credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          email,
-          password,
-          csrfToken,
-          json: 'true',
-        }),
-        redirect: 'manual',
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       })
 
-      // Check for session cookie in response
-      const sessionCookie = callbackRes.headers.get('set-cookie')
-      
-      if (callbackRes.ok || callbackRes.status === 302 || sessionCookie) {
-        window.location.href = destination
-        return
-      }
-
-      // Try fetching the session to verify login worked
-      const sessionRes = await fetch('/api/auth/session')
-      const session = await sessionRes.json()
-      
-      if (session?.user?.id) {
-        window.location.href = destination
-      } else {
+      if (result?.error) {
         setError('Invalid email or password')
         setLoading(false)
+      } else {
+        window.location.href = destination
       }
     } catch (err) {
       console.error('Login error:', err)
