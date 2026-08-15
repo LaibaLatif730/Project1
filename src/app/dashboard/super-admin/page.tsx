@@ -558,8 +558,8 @@ export default function SuperAdminDashboard() {
                     key={clinic.id}
                     className="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-6"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-bold text-white">{clinic.name}</h3>
                           <span
@@ -585,54 +585,78 @@ export default function SuperAdminDashboard() {
                           <span>{clinic._count.treatments} treatments</span>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+
+                      {/* Right column — admin status + actions */}
+                      <div className="flex flex-col items-end gap-3 shrink-0">
+
+                        {/* Admin status block */}
                         {clinicsLoading || !(clinic.id in clinicAdmins) ? (
-                          <span className="px-3 py-1 text-white/30 text-sm">Loading...</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                            <div className="w-2 h-2 rounded-full bg-white/20 animate-pulse" />
+                            <span className="text-white/30 text-sm">Loading...</span>
+                          </div>
                         ) : clinicAdmins[clinic.id] ? (
-                          <div className="flex items-center gap-2">
-                            <div className="text-right">
-                              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium block">
-                                Admin Assigned
-                              </span>
-                              <span className="text-white/40 text-xs mt-1 block">
-                                {clinicAdmins[clinic.id]?.email}
-                              </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                              <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                              <span className="text-emerald-400 text-sm font-medium">Admin Assigned</span>
                             </div>
+                            <div className="flex items-center gap-1.5 text-white/40 text-xs">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span>{clinicAdmins[clinic.id]?.name || 'Admin'}</span>
+                              <span className="text-white/20">·</span>
+                              <span>{clinicAdmins[clinic.id]?.email}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <div className="w-2 h-2 rounded-full bg-amber-400" />
+                            <span className="text-amber-400 text-sm font-medium">No Admin</span>
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2">
+                          {clinicAdmins[clinic.id] ? (
                             <Button
                               size="sm"
                               onClick={() => {
-                                if (confirm(`Remove admin "${clinicAdmins[clinic.id]?.email}" from ${clinic.name}? You can then assign a new one.`)) {
+                                if (confirm(`Remove admin "${clinicAdmins[clinic.id]?.email}" from ${clinic.name}?`)) {
                                   handleRemoveAdmin(clinic.id, clinicAdmins[clinic.id]!.id)
                                 }
                               }}
                               variant="outline"
-                              className="text-red-400 border-red-500/30"
+                              className="text-red-400 border-red-500/30 hover:bg-red-500/10"
                               disabled={submitting}
                             >
                               Remove Admin
                             </Button>
-                          </div>
-                        ) : (
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => setShowAdmin(clinic.id)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                              disabled={clinicsLoading || !(clinic.id in clinicAdmins)}
+                            >
+                              Assign Admin
+                            </Button>
+                          )}
                           <Button
                             size="sm"
-                            onClick={() => setShowAdmin(clinic.id)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            onClick={() => toggleActive(clinic)}
+                            variant="outline"
+                            className={
+                              clinic.isActive
+                                ? 'text-red-400 border-red-500/30 hover:bg-red-500/10'
+                                : 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10'
+                            }
                           >
-                            Assign Admin
+                            {clinic.isActive ? 'Deactivate' : 'Activate'}
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          onClick={() => toggleActive(clinic)}
-                          variant="outline"
-                          className={
-                            clinic.isActive
-                              ? 'text-red-400 border-red-500/30'
-                              : 'text-emerald-400 border-emerald-500/30'
-                          }
-                        >
-                          {clinic.isActive ? 'Deactivate' : 'Activate'}
-                        </Button>
+                        </div>
+
                       </div>
                     </div>
                   </div>
