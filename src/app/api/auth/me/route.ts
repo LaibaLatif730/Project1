@@ -13,7 +13,14 @@ export async function GET() {
     // Always fetch the role from the database to ensure accuracy
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { id: true, name: true, email: true, role: true, clinicId: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        clinicId: true,
+        clinic: { select: { name: true } },
+      },
     })
 
     if (!user) {
@@ -24,7 +31,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    return NextResponse.json(user)
+    return NextResponse.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clinicId: user.clinicId,
+      clinicName: user.clinic?.name ?? null,
+    })
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

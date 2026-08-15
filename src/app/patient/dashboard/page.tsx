@@ -31,6 +31,7 @@ interface PatientData {
   firstName: string
   lastName: string
   phone: string
+  clinicName: string | null
   treatments: Treatment[]
   standaloneCheckIns: CheckIn[]
   appointments: any[]
@@ -144,7 +145,17 @@ export default function PatientDashboard() {
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
                 {patient.firstName[0]}{patient.lastName[0]}
               </div>
-              <span className="text-white/90 font-medium hidden sm:block">{patientName}</span>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-white/90 font-medium text-sm">{patientName}</span>
+                {patient.clinicName && (
+                  <span className="text-white/50 text-xs flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    {patient.clinicName}
+                  </span>
+                )}
+              </div>
             </div>
             <Button onClick={handleLogout} className="btn-danger">
               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

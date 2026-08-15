@@ -9,6 +9,7 @@ export async function GET() {
     const patient = await prisma.patient.findUnique({
       where: { id: patientId, isActive: true },
       include: {
+        clinic: { select: { name: true } },
         treatments: {
           include: {
             checkIns: {
@@ -47,6 +48,7 @@ export async function GET() {
       firstName: patient.firstName,
       lastName: patient.lastName,
       dateOfBirth: patient.dateOfBirth,
+      clinicName: patient.clinic?.name ?? null,
       treatments: patient.treatments,
       standaloneCheckIns: patient.checkIns,
     }

@@ -71,6 +71,7 @@ export default function DashboardLayout({
   const notifRef = useRef<HTMLDivElement>(null)
   const [userRole, setUserRole] = useState('')
   const [userName, setUserName] = useState('User')
+  const [clinicName, setClinicName] = useState<string | null>(null)
 
   const navigation = userRole === 'SUPERADMIN' ? superAdminNav : userRole === 'DOCTOR' ? doctorNav : userRole === 'RECEPTIONIST' ? receptionistNav : userRole === 'ADMIN' ? adminNav : []
 
@@ -97,6 +98,7 @@ export default function DashboardLayout({
         }
         setUserRole(data.role || '')
         setUserName(data.name || 'User')
+        setClinicName(data.clinicName || null)
       } else {
         router.replace('/login')
       }
@@ -177,7 +179,12 @@ export default function DashboardLayout({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
-              <span className="text-lg font-bold text-white">AI Clinic</span>
+              <div className="flex flex-col leading-tight">
+                <span className="text-lg font-bold text-white">AI Clinic</span>
+                {clinicName && (
+                  <span className="text-white/50 text-xs">{clinicName}</span>
+                )}
+              </div>
             </div>
             <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -212,7 +219,12 @@ export default function DashboardLayout({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <span className="text-lg font-bold text-white">AI Clinic</span>
+            <div className="flex flex-col leading-tight">
+              <span className="text-lg font-bold text-white">AI Clinic</span>
+              {clinicName && (
+                <span className="text-white/50 text-xs">{clinicName}</span>
+              )}
+            </div>
           </div>
           <nav className="flex flex-1 flex-col gap-2">
             {navigation.map((item) => (
@@ -331,9 +343,19 @@ export default function DashboardLayout({
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
                 {userName[0]}
               </div>
-              <span className="text-white/90 font-medium hidden sm:block">
-                {userName}
-              </span>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-white/90 font-medium text-sm">
+                  {userName}
+                </span>
+                {clinicName && (
+                  <span className="text-white/50 text-xs flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    {clinicName}
+                  </span>
+                )}
+              </div>
               <span className="badge-glass badge-info text-xs hidden sm:block">
                 {userRole}
               </span>
