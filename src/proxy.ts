@@ -129,7 +129,8 @@ export async function proxy(req: NextRequest) {
   // ── Protect /api/patient routes ───────────────────────────────────
   if (
     pathname.startsWith('/api/patient/') &&
-    !pathname.startsWith('/api/patient/auth')
+    !pathname.startsWith('/api/patient/auth') &&
+    !pathname.startsWith('/api/patient/clinics')
   ) {
     if (!(await hasValidPatientSession(req))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
