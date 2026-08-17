@@ -27,10 +27,14 @@ function checkRateLimit(key: string): boolean {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { email, password } = body
+    const { email, password, clinicId } = body
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    }
+
+    if (!clinicId) {
+      return NextResponse.json({ error: 'Please select your clinic' }, { status: 400 })
     }
 
     const normalizedEmail = email.toLowerCase().trim()
@@ -40,8 +44,9 @@ export async function POST(req: Request) {
     }
 
     // First try: Patient record with a passwordHash (WhatsApp/PIN-set patients)
+    // Scoped to the selected clinic to prevent cross-clinic email collisions
     const patient = await prisma.patient.findFirst({
-      where: { isActive: true, email: normalizedEmail },
+      where: { isActive: true, email: normalizedEmail, clinicId },
       select: { id: true, firstName: true, lastName: true, email: true, passwordHash: true, userId: true },
     })
 
@@ -58,10 +63,15 @@ export async function POST(req: Request) {
     // Second try: User table (patients registered via the signup form)
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true, name: true, email: true, password: true, role: true },
+      select: { id: true, name: true, email: true, password: true, role: true, clinicId: true },
     })
 
     if (!user || user.role !== 'PATIENT' || !user.password) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
+    // Enforce clinic match for User-based patients too
+    if (user.clinicId && user.clinicId !== clinicId) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
@@ -77,20 +87,18 @@ export async function POST(req: Request) {
     })
 
     if (!patientRecord) {
-      // Also check by email in case the record exists but userId isn't linked yet
+      // Also check by email + clinicId
       patientRecord = await prisma.patient.findFirst({
-        where: { email: normalizedEmail },
+        where: { email: normalizedEmail, clinicId },
         select: { id: true },
       })
 
       if (patientRecord) {
-        // Link the existing Patient record to the User
         await prisma.patient.update({
           where: { id: patientRecord.id },
           data: { userId: user.id },
         })
       } else {
-        // Create a new Patient record linked to the User
         const nameParts = user.name?.trim().split(/\s+/) || ['Patient']
         patientRecord = await prisma.patient.create({
           data: {
@@ -98,6 +106,7 @@ export async function POST(req: Request) {
             firstName: nameParts[0],
             lastName: nameParts.slice(1).join(' ') || nameParts[0],
             email: user.email,
+            clinicId,
             isActive: true,
             consentGiven: true,
             consentDate: new Date(),

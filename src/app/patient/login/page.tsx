@@ -1,10 +1,15 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FieldError } from '@/components/FieldError'
+
+interface Clinic {
+  id: string
+  name: string
+}
 
 function PatientLoginForm() {
   const router = useRouter()
@@ -12,19 +17,27 @@ function PatientLoginForm() {
   const registered = searchParams.get('registered')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [clinicId, setClinicId] = useState('')
+  const [clinics, setClinics] = useState<Clinic[]>([])
+  const [clinicsLoading, setClinicsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldError, setFieldError] = useState('')
 
+  useEffect(() => {
+    fetch('/api/patient/clinics')
+      .then(r => r.json())
+      .then(data => {
+        setClinics(data)
+        if (data.length === 1) setClinicId(data[0].id) // auto-select if only one
+      })
+      .catch(() => {})
+      .finally(() => setClinicsLoading(false))
+  }, [])
+
   const validateEmail = (value: string): boolean => {
-    if (!value) {
-      setFieldError('Email is required')
-      return false
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setFieldError('Please enter a valid email address')
-      return false
-    }
+    if (!value) { setFieldError('Email is required'); return false }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { setFieldError('Please enter a valid email address'); return false }
     setFieldError('')
     return true
   }
@@ -33,22 +46,19 @@ function PatientLoginForm() {
     e.preventDefault()
     setError('')
     if (!validateEmail(email)) return
-
-    if (!password || password.length < 6) {
-      setFieldError('Password must be at least 6 characters')
-      return
-    }
+    if (!password || password.length < 6) { setFieldError('Password must be at least 6 characters'); return }
+    if (!clinicId) { setError('Please select your clinic'); return }
     setFieldError('')
-
     setLoading(true)
     try {
       const res = await fetch('/api/patient/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, clinicId }),
       })
-
       if (res.ok) {
+        const data = await res.json()
+        if (data.name) localStorage.setItem('patientName', data.name)
         router.push('/patient/dashboard')
       } else {
         const data = await res.json()
@@ -82,7 +92,7 @@ function PatientLoginForm() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Patient Portal</h1>
-          <p className="text-white/60">Enter your email and password to sign in</p>
+          <p className="text-white/60">Select your clinic and sign in</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
@@ -104,6 +114,40 @@ function PatientLoginForm() {
             </div>
           )}
 
+          {/* Clinic selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/80 block">Clinic</label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <select
+                value={clinicId}
+                onChange={e => setClinicId(e.target.value)}
+                required
+                disabled={clinicsLoading}
+                className="w-full pl-12 pr-4 h-12 rounded-xl bg-white/10 border border-white/20 text-white text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50"
+              >
+                <option value="" disabled className="bg-gray-900">
+                  {clinicsLoading ? 'Loading clinics...' : 'Select your clinic'}
+                </option>
+                {clinics.map(c => (
+                  <option key={c.id} value={c.id} className="bg-gray-900 text-white">
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Email */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-white/80 block">Email</label>
             <div className="relative">
@@ -116,13 +160,14 @@ function PatientLoginForm() {
                 type="email"
                 placeholder="patient@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 className="pl-12"
                 required
               />
             </div>
           </div>
 
+          {/* Password */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-white/80 block">Password</label>
             <div className="relative">
@@ -135,7 +180,7 @@ function PatientLoginForm() {
                 type="password"
                 placeholder="Your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 className="pl-12"
                 required
               />
@@ -143,7 +188,7 @@ function PatientLoginForm() {
             <FieldError error={fieldError} />
           </div>
 
-          <Button type="submit" className="btn-primary w-full h-14 text-lg" disabled={loading}>
+          <Button type="submit" className="btn-primary w-full h-14 text-lg" disabled={loading || clinicsLoading}>
             {loading ? (
               <span className="flex items-center justify-center gap-3">
                 <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
