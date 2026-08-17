@@ -43,24 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Too many attempts. Please try again later.' }, { status: 429 })
     }
 
-    // First try: Patient record with a passwordHash (WhatsApp/PIN-set patients)
-    // Scoped to the selected clinic to prevent cross-clinic email collisions
-    const patient = await prisma.patient.findFirst({
-      where: { isActive: true, email: normalizedEmail, clinicId },
-      select: { id: true, firstName: true, lastName: true, email: true, passwordHash: true, userId: true },
-    })
-
-    if (patient && patient.passwordHash) {
-      const valid = await bcrypt.compare(password, patient.passwordHash)
-      if (!valid) {
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-      }
-      attempts.delete(normalizedEmail)
-      await setPatientSessionCookie(patient.id)
-      return NextResponse.json({ name: `${patient.firstName} ${patient.lastName}` })
-    }
-
-    // Second try: User table (patients registered via the signup form)
+    // Look up by email first to determine which clinic the patient belongs to
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
       select: { id: true, name: true, email: true, password: true, role: true, clinicId: true },
@@ -70,9 +53,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
-    // Enforce clinic match for User-based patients too
-    if (user.clinicId && user.clinicId !== clinicId) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    // Enforce clinic match — patient must select the clinic they registered at
+    if (user.clinicId !== clinicId) {
+      return NextResponse.json(
+        { error: 'You are not registered at this clinic. Please select the correct clinic and try again.' },
+        { status: 401 }
+      )
     }
 
     const valid = await bcrypt.compare(password, user.password)
@@ -87,7 +73,6 @@ export async function POST(req: Request) {
     })
 
     if (!patientRecord) {
-      // Also check by email + clinicId
       patientRecord = await prisma.patient.findFirst({
         where: { email: normalizedEmail, clinicId },
         select: { id: true },
