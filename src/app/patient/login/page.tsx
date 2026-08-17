@@ -19,17 +19,20 @@ function PatientLoginForm() {
   const [password, setPassword] = useState('')
   const [clinicId, setClinicId] = useState('')
   const [clinics, setClinics] = useState<Clinic[]>([])
-  const [clinicsLoading, setClinicsLoading] = useState(true)
+  const [clinicsLoading, setClinicsLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldError, setFieldError] = useState('')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
+    setClinicsLoading(true)
     fetch('/api/patient/clinics')
       .then(r => r.json())
       .then(data => {
         setClinics(data)
-        if (data.length === 1) setClinicId(data[0].id) // auto-select if only one
+        if (data.length === 1) setClinicId(data[0].id)
       })
       .catch(() => {})
       .finally(() => setClinicsLoading(false))
@@ -114,7 +117,7 @@ function PatientLoginForm() {
             </div>
           )}
 
-          {/* Clinic selector */}
+          {/* Clinic selector — only rendered client-side to avoid hydration mismatch */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-white/80 block">Clinic</label>
             <div className="relative">
@@ -123,22 +126,28 @@ function PatientLoginForm() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <select
-                value={clinicId}
-                onChange={e => setClinicId(e.target.value)}
-                required
-                disabled={clinicsLoading}
-                className="w-full pl-12 pr-4 h-12 rounded-xl bg-white/10 border border-white/20 text-white text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50"
-              >
-                <option value="" disabled className="bg-gray-900">
-                  {clinicsLoading ? 'Loading clinics...' : 'Select your clinic'}
-                </option>
-                {clinics.map(c => (
-                  <option key={c.id} value={c.id} className="bg-gray-900 text-white">
-                    {c.name}
+              {!mounted ? (
+                <div className="w-full pl-12 pr-4 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center">
+                  <span className="text-white/40 text-sm">Loading clinics...</span>
+                </div>
+              ) : (
+                <select
+                  value={clinicId}
+                  onChange={e => setClinicId(e.target.value)}
+                  required
+                  disabled={clinicsLoading}
+                  className="w-full pl-12 pr-4 h-12 rounded-xl bg-white/10 border border-white/20 text-white text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50"
+                >
+                  <option value="" disabled className="bg-gray-900">
+                    {clinicsLoading ? 'Loading clinics...' : 'Select your clinic'}
                   </option>
-                ))}
-              </select>
+                  {clinics.map(c => (
+                    <option key={c.id} value={c.id} className="bg-gray-900 text-white">
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -188,7 +197,7 @@ function PatientLoginForm() {
             <FieldError error={fieldError} />
           </div>
 
-          <Button type="submit" className="btn-primary w-full h-14 text-lg" disabled={loading || clinicsLoading}>
+          <Button type="submit" className="btn-primary w-full h-14 text-lg" disabled={loading || !mounted || clinicsLoading}>
             {loading ? (
               <span className="flex items-center justify-center gap-3">
                 <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
