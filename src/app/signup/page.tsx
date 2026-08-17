@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,17 +9,49 @@ import { FieldError } from '@/components/FieldError'
 import { registerSchema } from '@/lib/validators'
 import { useZodForm } from '@/hooks/useZodForm'
 
+interface Clinic {
+  id: string
+  name: string
+}
+
 export default function SignupPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [clinics, setClinics] = useState<Clinic[]>([])
+  const [clinicsLoading, setClinicsLoading] = useState(true)
+  const [clinicsError, setClinicsError] = useState('')
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
     phone: '',
+    clinicId: '',
   })
+
+  useEffect(() => {
+    setClinicsLoading(true)
+    fetch('/api/patient/clinics')
+      .then(async r => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => null)
+          throw new Error(body?.error || `Failed to load clinics (status ${r.status})`)
+        }
+        return r.json()
+      })
+      .then(data => {
+        const list = Array.isArray(data) ? data : []
+        setClinics(list)
+        if (list.length === 1) setForm(f => ({ ...f, clinicId: list[0].id }))
+        if (list.length === 0) setClinicsError('No clinics are currently available.')
+      })
+      .catch((err) => {
+        setClinics([])
+        setClinicsError(err?.message || 'Unable to load clinics.')
+      })
+      .finally(() => setClinicsLoading(false))
+  }, [])
 
   const { validate, getFieldError } = useZodForm(registerSchema)
 
@@ -34,7 +66,9 @@ export default function SignupPage() {
       return
     }
 
-    if (!validate({ name: form.name, email: form.email, password: form.password, phone: form.phone || undefined })) {
+    if (!form.clinicId) { setError('Please select your clinic'); setLoading(false); return }
+
+    if (!validate({ name: form.name, email: form.email, password: form.password, phone: form.phone || undefined, clinicId: form.clinicId })) {
       setLoading(false)
       return
     }
@@ -48,6 +82,7 @@ export default function SignupPage() {
           email: form.email,
           password: form.password,
           phone: form.phone || undefined,
+          clinicId: form.clinicId || undefined,
         }),
       })
 
@@ -99,6 +134,41 @@ export default function SignupPage() {
               {error}
             </div>
           )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/80 block">Clinic *</label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <select
+                value={form.clinicId}
+                onChange={e => setForm({ ...form, clinicId: e.target.value })}
+                required
+                disabled={clinicsLoading || clinics.length === 0}
+                className="w-full pl-12 pr-4 h-12 rounded-xl bg-white/10 border border-white/20 text-white text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 disabled:opacity-50"
+              >
+                <option value="" disabled className="bg-gray-900">
+                  {clinicsLoading ? 'Loading clinics...' : clinicsError || 'Select your clinic'}
+                </option>
+                {clinics.map(c => (
+                  <option key={c.id} value={c.id} className="bg-gray-900 text-white">
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            {clinicsError && !clinicsLoading && (
+              <p className="text-amber-400 text-xs mt-1">{clinicsError}</p>
+            )}
+          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-white/80 block">Full Name *</label>
