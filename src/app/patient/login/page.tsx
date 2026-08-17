@@ -29,12 +29,13 @@ function PatientLoginForm() {
     setMounted(true)
     setClinicsLoading(true)
     fetch('/api/patient/clinics')
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : [])
       .then(data => {
-        setClinics(data)
-        if (data.length === 1) setClinicId(data[0].id)
+        const list = Array.isArray(data) ? data : []
+        setClinics(list)
+        if (list.length === 1) setClinicId(list[0].id)
       })
-      .catch(() => {})
+      .catch(() => setClinics([]))
       .finally(() => setClinicsLoading(false))
   }, [])
 
