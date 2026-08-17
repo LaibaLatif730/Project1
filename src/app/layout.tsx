@@ -3,8 +3,8 @@ import './globals.css'
 import Providers from './providers'
 
 export const metadata: Metadata = {
-  title: 'AI Clinic Assistant - Injectable Aftercare',
-  description: 'Smart clinic assistant for aesthetic treatment aftercare',
+  title: 'AI Clinic Assistant - Smart Aesthetic Aftercare',
+  description: 'AI-powered clinic assistant for aesthetic treatment aftercare. Automate check-ins, track recovery, and deliver exceptional patient outcomes.',
 }
 
 export default function RootLayout({
