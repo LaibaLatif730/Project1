@@ -20,6 +20,7 @@ function PatientLoginForm() {
   const [clinicId, setClinicId] = useState('')
   const [clinics, setClinics] = useState<Clinic[]>([])
   const [clinicsLoading, setClinicsLoading] = useState(false)
+  const [clinicsError, setClinicsError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldError, setFieldError] = useState('')
@@ -28,14 +29,25 @@ function PatientLoginForm() {
   useEffect(() => {
     setMounted(true)
     setClinicsLoading(true)
+    setClinicsError('')
     fetch('/api/patient/clinics')
-      .then(r => r.ok ? r.json() : [])
+      .then(async r => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => null)
+          throw new Error(body?.error || `Failed to load clinics (status ${r.status})`)
+        }
+        return r.json()
+      })
       .then(data => {
         const list = Array.isArray(data) ? data : []
         setClinics(list)
         if (list.length === 1) setClinicId(list[0].id)
+        if (list.length === 0) setClinicsError('No clinics are currently available. Please contact your clinic for assistance.')
       })
-      .catch(() => setClinics([]))
+      .catch((err) => {
+        setClinics([])
+        setClinicsError(err?.message || 'Unable to load clinics. Please try again later.')
+      })
       .finally(() => setClinicsLoading(false))
   }, [])
 
@@ -136,11 +148,11 @@ function PatientLoginForm() {
                   value={clinicId}
                   onChange={e => setClinicId(e.target.value)}
                   required
-                  disabled={clinicsLoading}
+                  disabled={clinicsLoading || clinics.length === 0}
                   className="w-full pl-12 pr-4 h-12 rounded-xl bg-white/10 border border-white/20 text-white text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50"
                 >
                   <option value="" disabled className="bg-gray-900">
-                    {clinicsLoading ? 'Loading clinics...' : 'Select your clinic'}
+                    {clinicsLoading ? 'Loading clinics...' : clinicsError || 'Select your clinic'}
                   </option>
                   {clinics.map(c => (
                     <option key={c.id} value={c.id} className="bg-gray-900 text-white">
@@ -155,6 +167,9 @@ function PatientLoginForm() {
                 </svg>
               </div>
             </div>
+            {clinicsError && !clinicsLoading && (
+              <p className="text-amber-400 text-xs mt-1">{clinicsError}</p>
+            )}
           </div>
 
           {/* Email */}
